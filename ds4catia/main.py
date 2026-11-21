@@ -132,7 +132,7 @@ def main(argv: "list[str] | None" = None) -> int:
 
     if not args.headless:
         try:
-            from ds4catia.gui.main_window import run_gui
+            from ds4catia.gui.app import run_gui
         except ImportError as exc:
             print(f"GUI unavailable ({exc}); falling back to --headless.", file=sys.stderr)
         else:
