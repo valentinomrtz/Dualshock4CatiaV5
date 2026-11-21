@@ -1,0 +1,113 @@
+{
+  "profile_id": "sketcher",
+  "display_name": "Sketcher",
+  "auto_activate": { "trigger": "catia_workbench_id", "match": "SktCfg" },
+  "bindings": [
+    {
+      "id": "skt.touchpad_tap.select",
+      "input": { "device": "ds4", "control": "touchpad_tap" },
+      "target": { "type": "mouse_button", "button": "left" }
+    },
+    {
+      "id": "skt.touchpad_swipe.pan_2d",
+      "input": { "device": "ds4", "control": "touchpad_swipe" },
+      "target": { "type": "mouse_move", "axis": "both" },
+      "analog": { "deadzone": 0.08, "sensitivity": 1.1, "curve": "linear" }
+    },
+    {
+      "id": "skt.cross.profile_line",
+      "input": { "device": "ds4", "control": "cross" },
+      "target": { "type": "catia_command", "command_id": "Sketcher.Line" }
+    },
+    {
+      "id": "skt.square.circle",
+      "input": { "device": "ds4", "control": "square" },
+      "target": { "type": "catia_command", "command_id": "Sketcher.Circle" }
+    },
+    {
+      "id": "skt.circle.trim",
+      "input": { "device": "ds4", "control": "circle" },
+      "target": { "type": "catia_command", "command_id": "Sketcher.QuickTrim" }
+    },
+    {
+      "id": "skt.triangle.exit_sketch",
+      "input": { "device": "ds4", "control": "triangle" },
+      "target": { "type": "catia_command", "command_id": "Sketcher.ExitWorkbench" }
+    },
+    {
+      "id": "skt.r1.constraint_coincident",
+      "input": { "device": "ds4", "control": "r1" },
+      "target": { "type": "catia_command", "command_id": "Sketcher.Constraint.Coincident" }
+    },
+    {
+      "id": "skt.r2_digital.constraint_distance",
+      "input": { "device": "ds4", "control": "r2_digital" },
+      "target": { "type": "catia_command", "command_id": "Sketcher.Constraint.Distance" }
+    },
+    {
+      "id": "skt.share.undo",
+      "input": { "device": "ds4", "control": "share" },
+      "target": { "type": "catia_command", "command_id": "Edit.Undo" }
+    },
+    {
+      "id": "skt.options.pause",
+      "input": { "device": "ds4", "control": "options" },
+      "target": { "type": "app_control", "action": "pause" }
+    },
+    {
+      "id": "skt.ps.resume",
+      "input": { "device": "ds4", "control": "ps" },
+      "target": { "type": "app_control", "action": "resume" }
+    },
+    {
+      "id": "skt.right_stick.pan_2d",
+      "input": { "device": "ds4", "control": "right_stick" },
+      "target": { "type": "catia_camera", "operation": "translate" },
+      "analog": { "deadzone": 0.12, "sensitivity": 1.0, "curve": "linear" }
+    },
+    {
+      "id": "skt.l2.zoom_out",
+      "input": { "device": "ds4", "control": "l2" },
+      "target": { "type": "catia_camera", "operation": "zoom", "axis": [0.0, 0.0, -1.0] },
+      "analog": { "deadzone": 0.05, "sensitivity": 1.0, "curve": "quadratic" }
+    },
+    {
+      "id": "skt.r2.zoom_in",
+      "input": { "device": "ds4", "control": "r2" },
+      "target": { "type": "catia_camera", "operation": "zoom", "axis": [0.0, 0.0, 1.0] },
+      "analog": { "deadzone": 0.05, "sensitivity": 1.0, "curve": "quadratic" }
+    },
+    {
+      "id": "skt.l1.enter_constraint_layer",
+      "input": { "device": "ds4", "control": "l1" },
+      "target": { "type": "layer_control", "layer_id": "skt.l1-constraints", "mode": "hold" }
+    }
+  ],
+  "layers": [
+    {
+      "layer_id": "skt.l1-constraints",
+      "activation": {
+        "trigger": { "device": "ds4", "control": "l1" },
+        "mode": "hold"
+      },
+      "clears_on_profile_switch": true,
+      "overrides": [
+        {
+          "id": "skt.l1.cross.constraint_parallelism",
+          "input": { "device": "ds4", "control": "cross" },
+          "target": { "type": "catia_command", "command_id": "Sketcher.Constraint.Parallelism" }
+        },
+        {
+          "id": "skt.l1.square.constraint_horizontal_vertical",
+          "input": { "device": "ds4", "control": "square" },
+          "target": { "type": "catia_command", "command_id": "Sketcher.Constraint.HorizontalVertical" }
+        },
+        {
+          "id": "skt.l1.circle.constraint_symmetry",
+          "input": { "device": "ds4", "control": "circle" },
+          "target": { "type": "catia_command", "command_id": "Sketcher.Constraint.Symmetry" }
+        }
+      ]
+    }
+  ]
+}

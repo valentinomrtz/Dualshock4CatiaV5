@@ -1,0 +1,119 @@
+{
+  "profile_id": "generative_shape_design",
+  "display_name": "Generative Shape Design",
+  "auto_activate": { "trigger": "catia_workbench_id", "match": "GSDCfg" },
+  "bindings": [
+    {
+      "id": "gsd.touchpad_tap.select",
+      "input": { "device": "ds4", "control": "touchpad_tap" },
+      "target": { "type": "mouse_button", "button": "left" }
+    },
+    {
+      "id": "gsd.touchpad_swipe.pan",
+      "input": { "device": "ds4", "control": "touchpad_swipe" },
+      "target": { "type": "mouse_move", "axis": "both" },
+      "analog": { "deadzone": 0.08, "sensitivity": 1.2, "curve": "linear" }
+    },
+    {
+      "id": "gsd.cross.point",
+      "input": { "device": "ds4", "control": "cross" },
+      "target": { "type": "catia_command", "command_id": "GSD.Point" }
+    },
+    {
+      "id": "gsd.square.line",
+      "input": { "device": "ds4", "control": "square" },
+      "target": { "type": "catia_command", "command_id": "GSD.Line" }
+    },
+    {
+      "id": "gsd.circle.extrude_surface",
+      "input": { "device": "ds4", "control": "circle" },
+      "target": { "type": "catia_command", "command_id": "GSD.Extrude" }
+    },
+    {
+      "id": "gsd.triangle.fill_surface",
+      "input": { "device": "ds4", "control": "triangle" },
+      "target": { "type": "catia_command", "command_id": "GSD.Fill" }
+    },
+    {
+      "id": "gsd.r1.join",
+      "input": { "device": "ds4", "control": "r1" },
+      "target": { "type": "catia_command", "command_id": "GSD.Join" }
+    },
+    {
+      "id": "gsd.r2_digital.update",
+      "input": { "device": "ds4", "control": "r2_digital" },
+      "target": { "type": "catia_command", "command_id": "Edit.Update" }
+    },
+    {
+      "id": "gsd.share.undo",
+      "input": { "device": "ds4", "control": "share" },
+      "target": { "type": "catia_command", "command_id": "Edit.Undo" }
+    },
+    {
+      "id": "gsd.options.pause",
+      "input": { "device": "ds4", "control": "options" },
+      "target": { "type": "app_control", "action": "pause" }
+    },
+    {
+      "id": "gsd.ps.resume",
+      "input": { "device": "ds4", "control": "ps" },
+      "target": { "type": "app_control", "action": "resume" }
+    },
+    {
+      "id": "gsd.left_stick.orbit",
+      "input": { "device": "ds4", "control": "left_stick" },
+      "target": { "type": "catia_camera", "operation": "rotate" },
+      "analog": { "deadzone": 0.15, "sensitivity": 1.0, "curve": "ease_out_quad" }
+    },
+    {
+      "id": "gsd.right_stick.pan",
+      "input": { "device": "ds4", "control": "right_stick" },
+      "target": { "type": "catia_camera", "operation": "translate" },
+      "analog": { "deadzone": 0.12, "sensitivity": 1.0, "curve": "linear" }
+    },
+    {
+      "id": "gsd.l2.zoom_out",
+      "input": { "device": "ds4", "control": "l2" },
+      "target": { "type": "catia_camera", "operation": "zoom", "axis": [0.0, 0.0, -1.0] },
+      "analog": { "deadzone": 0.05, "sensitivity": 1.0, "curve": "quadratic" }
+    },
+    {
+      "id": "gsd.r2.zoom_in",
+      "input": { "device": "ds4", "control": "r2" },
+      "target": { "type": "catia_camera", "operation": "zoom", "axis": [0.0, 0.0, 1.0] },
+      "analog": { "deadzone": 0.05, "sensitivity": 1.0, "curve": "quadratic" }
+    },
+    {
+      "id": "gsd.l1.enter_surface_tools_layer",
+      "input": { "device": "ds4", "control": "l1" },
+      "target": { "type": "layer_control", "layer_id": "gsd.l1-surface-tools", "mode": "hold" }
+    }
+  ],
+  "layers": [
+    {
+      "layer_id": "gsd.l1-surface-tools",
+      "activation": {
+        "trigger": { "device": "ds4", "control": "l1" },
+        "mode": "hold"
+      },
+      "clears_on_profile_switch": true,
+      "overrides": [
+        {
+          "id": "gsd.l1.cross.curve_offset",
+          "input": { "device": "ds4", "control": "cross" },
+          "target": { "type": "catia_command", "command_id": "GSD.CurveOffset" }
+        },
+        {
+          "id": "gsd.l1.square.surface_sweep",
+          "input": { "device": "ds4", "control": "square" },
+          "target": { "type": "catia_command", "command_id": "GSD.Sweep" }
+        },
+        {
+          "id": "gsd.l1.circle.trim_surface",
+          "input": { "device": "ds4", "control": "circle" },
+          "target": { "type": "catia_command", "command_id": "GSD.Trim" }
+        }
+      ]
+    }
+  ]
+}
