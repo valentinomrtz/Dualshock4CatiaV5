@@ -1,0 +1,124 @@
+{
+  "profile_id": "assembly_design",
+  "display_name": "Assembly Design",
+  "auto_activate": { "trigger": "catia_workbench_id", "match": "AsmCfg" },
+  "bindings": [
+    {
+      "id": "asm.touchpad_tap.select_component",
+      "input": { "device": "ds4", "control": "touchpad_tap" },
+      "target": { "type": "mouse_button", "button": "left" }
+    },
+    {
+      "id": "asm.touchpad_swipe.pan",
+      "input": { "device": "ds4", "control": "touchpad_swipe" },
+      "target": { "type": "mouse_move", "axis": "both" },
+      "analog": { "deadzone": 0.08, "sensitivity": 1.2, "curve": "linear" }
+    },
+    {
+      "id": "asm.touchpad_click.rmb_context",
+      "input": { "device": "ds4", "control": "touchpad_click" },
+      "target": { "type": "mouse_button", "button": "right" }
+    },
+    {
+      "id": "asm.cross.coincidence_constraint",
+      "input": { "device": "ds4", "control": "cross" },
+      "target": { "type": "catia_command", "command_id": "Assembly.CoincidenceConstraint" }
+    },
+    {
+      "id": "asm.square.contact_constraint",
+      "input": { "device": "ds4", "control": "square" },
+      "target": { "type": "catia_command", "command_id": "Assembly.ContactConstraint" }
+    },
+    {
+      "id": "asm.circle.distance_constraint",
+      "input": { "device": "ds4", "control": "circle" },
+      "target": { "type": "catia_command", "command_id": "Assembly.DistanceConstraint" }
+    },
+    {
+      "id": "asm.triangle.fixed_component",
+      "input": { "device": "ds4", "control": "triangle" },
+      "target": { "type": "catia_command", "command_id": "Assembly.FixedComponent" }
+    },
+    {
+      "id": "asm.r1.manipulate",
+      "input": { "device": "ds4", "control": "r1" },
+      "target": { "type": "catia_command", "command_id": "Assembly.Manipulate" }
+    },
+    {
+      "id": "asm.r2_digital.update_all",
+      "input": { "device": "ds4", "control": "r2_digital" },
+      "target": { "type": "catia_command", "command_id": "Edit.UpdateAll" }
+    },
+    {
+      "id": "asm.share.undo",
+      "input": { "device": "ds4", "control": "share" },
+      "target": { "type": "catia_command", "command_id": "Edit.Undo" }
+    },
+    {
+      "id": "asm.options.pause",
+      "input": { "device": "ds4", "control": "options" },
+      "target": { "type": "app_control", "action": "pause" }
+    },
+    {
+      "id": "asm.ps.resume",
+      "input": { "device": "ds4", "control": "ps" },
+      "target": { "type": "app_control", "action": "resume" }
+    },
+    {
+      "id": "asm.left_stick.orbit",
+      "input": { "device": "ds4", "control": "left_stick" },
+      "target": { "type": "catia_camera", "operation": "rotate" },
+      "analog": { "deadzone": 0.15, "sensitivity": 1.0, "curve": "ease_out_quad" }
+    },
+    {
+      "id": "asm.right_stick.pan",
+      "input": { "device": "ds4", "control": "right_stick" },
+      "target": { "type": "catia_camera", "operation": "translate" },
+      "analog": { "deadzone": 0.12, "sensitivity": 1.0, "curve": "linear" }
+    },
+    {
+      "id": "asm.l2.zoom_out",
+      "input": { "device": "ds4", "control": "l2" },
+      "target": { "type": "catia_camera", "operation": "zoom", "axis": [0.0, 0.0, -1.0] },
+      "analog": { "deadzone": 0.05, "sensitivity": 1.0, "curve": "quadratic" }
+    },
+    {
+      "id": "asm.r2.zoom_in",
+      "input": { "device": "ds4", "control": "r2" },
+      "target": { "type": "catia_camera", "operation": "zoom", "axis": [0.0, 0.0, 1.0] },
+      "analog": { "deadzone": 0.05, "sensitivity": 1.0, "curve": "quadratic" }
+    },
+    {
+      "id": "asm.l1.enter_selection_layer",
+      "input": { "device": "ds4", "control": "l1" },
+      "target": { "type": "layer_control", "layer_id": "asm.l1-selection-tools", "mode": "hold" }
+    }
+  ],
+  "layers": [
+    {
+      "layer_id": "asm.l1-selection-tools",
+      "activation": {
+        "trigger": { "device": "ds4", "control": "l1" },
+        "mode": "hold"
+      },
+      "clears_on_profile_switch": true,
+      "overrides": [
+        {
+          "id": "asm.l1.cross.add_to_selection",
+          "input": { "device": "ds4", "control": "cross" },
+          "target": { "type": "catia_selection", "operation": "add" }
+        },
+        {
+          "id": "asm.l1.circle.clear_selection",
+          "input": { "device": "ds4", "control": "circle" },
+          "target": { "type": "catia_selection", "operation": "clear" }
+        },
+        {
+          "id": "asm.l1.square.search_by_name",
+          "input": { "device": "ds4", "control": "square" },
+          "target": { "type": "catia_selection", "operation": "search", "query": "CATAsmSearch.Component" }
+        }
+      ]
+    }
+  ]
+}

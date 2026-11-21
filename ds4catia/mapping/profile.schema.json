@@ -1,0 +1,567 @@
+{
+  "$defs": {
+    "AnalogModifiers": {
+      "additionalProperties": false,
+      "description": "Response-shaping options for an analog input (stick/trigger/gyro axis).",
+      "properties": {
+        "deadzone": {
+          "default": 0.1,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Deadzone",
+          "type": "number"
+        },
+        "anti_deadzone": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Anti Deadzone",
+          "type": "number"
+        },
+        "sensitivity": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Sensitivity",
+          "type": "number"
+        },
+        "curve": {
+          "default": "linear",
+          "enum": [
+            "linear",
+            "quadratic",
+            "cubic",
+            "ease_out_quad",
+            "ease_out_cubic",
+            "custom_bezier"
+          ],
+          "title": "Curve",
+          "type": "string"
+        },
+        "curve_params": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Curve Params"
+        }
+      },
+      "title": "AnalogModifiers",
+      "type": "object"
+    },
+    "AppControlTarget": {
+      "additionalProperties": false,
+      "description": "Control the ds4catia application itself (pause, profile switching).",
+      "properties": {
+        "type": {
+          "const": "app_control",
+          "default": "app_control",
+          "title": "Type",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "pause",
+            "resume",
+            "next_profile",
+            "prev_profile"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "AppControlTarget",
+      "type": "object"
+    },
+    "Binding": {
+      "additionalProperties": false,
+      "description": "One physical input (+ optional modifiers) mapped to a destination action.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "$ref": "#/$defs/InputRef"
+        },
+        "target": {
+          "discriminator": {
+            "mapping": {
+              "app_control": "#/$defs/AppControlTarget",
+              "catia_camera": "#/$defs/CatiaCameraTarget",
+              "catia_command": "#/$defs/CatiaCommandTarget",
+              "catia_macro": "#/$defs/CatiaMacroTarget",
+              "catia_selection": "#/$defs/CatiaSelectionTarget",
+              "keyboard": "#/$defs/KeyboardTarget",
+              "layer_control": "#/$defs/LayerControlTarget",
+              "mouse_button": "#/$defs/MouseButtonTarget",
+              "mouse_move": "#/$defs/MouseMoveTarget"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CatiaCommandTarget"
+            },
+            {
+              "$ref": "#/$defs/CatiaCameraTarget"
+            },
+            {
+              "$ref": "#/$defs/CatiaSelectionTarget"
+            },
+            {
+              "$ref": "#/$defs/CatiaMacroTarget"
+            },
+            {
+              "$ref": "#/$defs/KeyboardTarget"
+            },
+            {
+              "$ref": "#/$defs/MouseMoveTarget"
+            },
+            {
+              "$ref": "#/$defs/MouseButtonTarget"
+            },
+            {
+              "$ref": "#/$defs/LayerControlTarget"
+            },
+            {
+              "$ref": "#/$defs/AppControlTarget"
+            }
+          ],
+          "title": "Target"
+        },
+        "analog": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnalogModifiers"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "digital": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DigitalModifiers"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "input",
+        "target"
+      ],
+      "title": "Binding",
+      "type": "object"
+    },
+    "CatiaCameraTarget": {
+      "additionalProperties": false,
+      "description": "Drive the CATIA 3D viewer camera (rotate/translate/zoom).",
+      "properties": {
+        "type": {
+          "const": "catia_camera",
+          "default": "catia_camera",
+          "title": "Type",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "rotate",
+            "translate",
+            "zoom"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "axis": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "title": "CatiaCameraTarget",
+      "type": "object"
+    },
+    "CatiaCommandTarget": {
+      "additionalProperties": false,
+      "description": "Invoke a CATIA command/menu action by its identifier.",
+      "properties": {
+        "type": {
+          "const": "catia_command",
+          "default": "catia_command",
+          "title": "Type",
+          "type": "string"
+        },
+        "command_id": {
+          "title": "Command Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "command_id"
+      ],
+      "title": "CatiaCommandTarget",
+      "type": "object"
+    },
+    "CatiaMacroTarget": {
+      "additionalProperties": false,
+      "description": "Run a named CATIA macro.",
+      "properties": {
+        "type": {
+          "const": "catia_macro",
+          "default": "catia_macro",
+          "title": "Type",
+          "type": "string"
+        },
+        "macro_name": {
+          "title": "Macro Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "macro_name"
+      ],
+      "title": "CatiaMacroTarget",
+      "type": "object"
+    },
+    "CatiaSelectionTarget": {
+      "additionalProperties": false,
+      "description": "Manipulate the CATIA selection set.",
+      "properties": {
+        "type": {
+          "const": "catia_selection",
+          "default": "catia_selection",
+          "title": "Type",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "add",
+            "clear",
+            "search"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "title": "CatiaSelectionTarget",
+      "type": "object"
+    },
+    "DigitalModifiers": {
+      "additionalProperties": false,
+      "description": "Tap/hold timing options for a digital (button-like) input.",
+      "properties": {
+        "tap_ms": {
+          "default": 180,
+          "exclusiveMinimum": 0,
+          "title": "Tap Ms",
+          "type": "integer"
+        },
+        "hold_ms": {
+          "default": 400,
+          "exclusiveMinimum": 0,
+          "title": "Hold Ms",
+          "type": "integer"
+        }
+      },
+      "title": "DigitalModifiers",
+      "type": "object"
+    },
+    "InputRef": {
+      "additionalProperties": false,
+      "description": "A reference to one physical control on a device.",
+      "properties": {
+        "device": {
+          "const": "ds4",
+          "default": "ds4",
+          "title": "Device",
+          "type": "string"
+        },
+        "control": {
+          "title": "Control",
+          "type": "string"
+        }
+      },
+      "required": [
+        "control"
+      ],
+      "title": "InputRef",
+      "type": "object"
+    },
+    "KeyboardTarget": {
+      "additionalProperties": false,
+      "description": "Send a keyboard chord/sequence.",
+      "properties": {
+        "type": {
+          "const": "keyboard",
+          "default": "keyboard",
+          "title": "Type",
+          "type": "string"
+        },
+        "keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keys",
+          "type": "array"
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "title": "KeyboardTarget",
+      "type": "object"
+    },
+    "Layer": {
+      "additionalProperties": false,
+      "description": "A \"shift\" overlay that only overrides the bindings it explicitly lists.\n\nCleared automatically whenever the active Profile changes, mirroring\nSteam Input's rule that activating a new base action set clears all\nactive action set layers.",
+      "properties": {
+        "layer_id": {
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "activation": {
+          "$ref": "#/$defs/LayerActivation"
+        },
+        "clears_on_profile_switch": {
+          "default": true,
+          "title": "Clears On Profile Switch",
+          "type": "boolean"
+        },
+        "overrides": {
+          "items": {
+            "$ref": "#/$defs/Binding"
+          },
+          "title": "Overrides",
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer_id",
+        "activation"
+      ],
+      "title": "Layer",
+      "type": "object"
+    },
+    "LayerActivation": {
+      "additionalProperties": false,
+      "description": "How a Layer is activated: which control triggers it, and hold vs toggle.",
+      "properties": {
+        "trigger": {
+          "$ref": "#/$defs/InputRef"
+        },
+        "mode": {
+          "default": "hold",
+          "enum": [
+            "hold",
+            "toggle"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trigger"
+      ],
+      "title": "LayerActivation",
+      "type": "object"
+    },
+    "LayerControlTarget": {
+      "additionalProperties": false,
+      "description": "Activate/deactivate a Layer (shift overlay).",
+      "properties": {
+        "type": {
+          "const": "layer_control",
+          "default": "layer_control",
+          "title": "Type",
+          "type": "string"
+        },
+        "layer_id": {
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "hold",
+            "toggle"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer_id",
+        "mode"
+      ],
+      "title": "LayerControlTarget",
+      "type": "object"
+    },
+    "MouseButtonTarget": {
+      "additionalProperties": false,
+      "description": "Press/release a mouse button.",
+      "properties": {
+        "type": {
+          "const": "mouse_button",
+          "default": "mouse_button",
+          "title": "Type",
+          "type": "string"
+        },
+        "button": {
+          "enum": [
+            "left",
+            "right",
+            "middle"
+          ],
+          "title": "Button",
+          "type": "string"
+        }
+      },
+      "required": [
+        "button"
+      ],
+      "title": "MouseButtonTarget",
+      "type": "object"
+    },
+    "MouseMoveTarget": {
+      "additionalProperties": false,
+      "description": "Move the mouse cursor (relative), optionally restricted to one axis.",
+      "properties": {
+        "type": {
+          "const": "mouse_move",
+          "default": "mouse_move",
+          "title": "Type",
+          "type": "string"
+        },
+        "axis": {
+          "default": "both",
+          "enum": [
+            "x",
+            "y",
+            "both"
+          ],
+          "title": "Axis",
+          "type": "string"
+        }
+      },
+      "title": "MouseMoveTarget",
+      "type": "object"
+    },
+    "ProfileAutoActivate": {
+      "additionalProperties": false,
+      "description": "Automatic profile-switching trigger, e.g. based on the active CATIA workbench.",
+      "properties": {
+        "trigger": {
+          "const": "catia_workbench_id",
+          "title": "Trigger",
+          "type": "string"
+        },
+        "match": {
+          "title": "Match",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trigger",
+        "match"
+      ],
+      "title": "ProfileAutoActivate",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A complete set of Bindings (+ Layers) for one \"mode\".\n\nTypically one Profile per CATIA workbench, plus one base/global Profile.",
+  "properties": {
+    "profile_id": {
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "auto_activate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProfileAutoActivate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "bindings": {
+      "items": {
+        "$ref": "#/$defs/Binding"
+      },
+      "title": "Bindings",
+      "type": "array"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/Layer"
+      },
+      "title": "Layers",
+      "type": "array"
+    }
+  },
+  "required": [
+    "profile_id",
+    "display_name"
+  ],
+  "title": "Profile",
+  "type": "object"
+}
