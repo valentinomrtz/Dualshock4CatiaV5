@@ -1,0 +1,39 @@
+[project]
+name = "ds4catia"
+version = "0.1.0"
+description = "Control CATIA V5 with a DualShock 4 controller, with fully user-configurable mappings."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "pydantic>=2",
+    "jsonschema>=4",
+    "PySide6>=6.6",
+    "hid>=1.0.5; sys_platform == 'win32'",
+    "pywin32>=306; sys_platform == 'win32'",
+    "pycatia>=0.9; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-qt>=4",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+ds4catia = "ds4catia.main:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ds4catia*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
