@@ -31,6 +31,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["ds4catia*"]
 
+[tool.setuptools.package-data]
+ds4catia = ["mapping/profiles/*.json", "mapping/profile.schema.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
