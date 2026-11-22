@@ -86,15 +86,44 @@ def _build_daemon(args: argparse.Namespace) -> Ds4CatiaDaemon:
 
     injector = None
     hid_device = None
+
+    # Real controller reading is independent of --dry-run: dry-run is
+    # about not touching real CATIA (and, for safety, not injecting real
+    # input), not about whether we can sense a physical DS4. Wiring the
+    # real device in regardless of dry_run is what makes the GUI's
+    # dry-run/test panel actually useful: it reflects real controller
+    # input dispatched against a fake CATIA backend, not only the
+    # on-screen simulated buttons.
+    if sys.platform == "win32":
+        try:
+            from ds4catia.hid.ds4_device import DS4Device, discover_devices
+
+            devices = discover_devices()
+        except RuntimeError as exc:
+            print(
+                f"DS4 HID support unavailable ({exc}); falling back to "
+                "on-screen simulation only.",
+                file=sys.stderr,
+            )
+            devices = []
+
+        if devices:
+            transport = None if config.connection == "auto" else config.connection
+            hid_device = DS4Device(devices[0], transport=transport)
+        else:
+            print(
+                "No DS4 controller detected; falling back to on-screen "
+                "simulation only.",
+                file=sys.stderr,
+            )
+
     if config.dry_run or sys.platform != "win32":
         catia = FakeCatiaBackend()
     else:  # pragma: no cover - exercised only on real Windows
         from ds4catia.catia.com_backend import ComCatiaBackend
-        from ds4catia.hid.ds4_device import DS4Device
         from ds4catia.input_injection.sendinput import InputInjector, get_foreground_window
 
         catia = ComCatiaBackend()
-        hid_device = DS4Device(transport=None if config.connection == "auto" else config.connection)
 
         def _catia_hwnd() -> int:
             # Best-effort: real CATIA HWND lookup is part of the manual

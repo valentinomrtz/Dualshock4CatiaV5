@@ -187,6 +187,7 @@ class Ds4CatiaDaemon:
         self._poll_thread.start()
 
         if self._hid_device is not None:
+            self._hid_device.connect()  # start_reading() requires this first
             self._hid_stop_event.clear()
             self._hid_thread = self._hid_device.start_reading(
                 self._on_hid_state, stop_event=self._hid_stop_event
@@ -202,6 +203,11 @@ class Ds4CatiaDaemon:
             self._poll_thread.join(timeout=2.0)
         if self._hid_thread is not None:
             self._hid_thread.join(timeout=2.0)
+        if self._hid_device is not None:
+            try:
+                self._hid_device.disconnect()
+            except Exception:
+                pass
         try:
             self.catia.disconnect()
         except CatiaBackendError:

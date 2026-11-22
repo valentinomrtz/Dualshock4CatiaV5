@@ -356,3 +356,46 @@ def test_feed_state_dispatches_a_tap_to_catia():
 
     assert daemon.catia.call_log[-1].method == "start_command"
     assert daemon.catia.call_log[-1].args == ("View.FitAll",)
+
+
+# -- start()/stop() lifecycle with a (fake) real hid_device -------------------
+
+
+class FakeHidDevice:
+    """Stands in for ds4catia.hid.ds4_device.DS4Device: records the call
+    order of connect/start_reading/disconnect without touching hardware."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.started_with = None
+
+    def connect(self) -> None:
+        self.calls.append("connect")
+
+    def start_reading(self, callback, stop_event=None):
+        if "connect" not in self.calls:
+            raise AssertionError("start_reading() called before connect()")
+        self.calls.append("start_reading")
+        self.started_with = callback
+
+        class _DummyThread:
+            def join(self, timeout=None):
+                pass
+
+        return _DummyThread()
+
+    def disconnect(self) -> None:
+        self.calls.append("disconnect")
+
+
+def test_start_connects_hid_device_before_reading_and_stop_disconnects_it():
+    daemon = _make_daemon()
+    hid_device = FakeHidDevice()
+    daemon._hid_device = hid_device
+
+    daemon.start()
+    assert hid_device.calls == ["connect", "start_reading"]
+    assert hid_device.started_with == daemon._on_hid_state  # bound methods compare by ==, not `is`
+
+    daemon.stop()
+    assert hid_device.calls == ["connect", "start_reading", "disconnect"]
