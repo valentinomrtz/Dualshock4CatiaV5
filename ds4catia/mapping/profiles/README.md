@@ -40,22 +40,43 @@ esquema estricto, en vez de dentro de cada JSON.
 
 ## Nota sobre los `command_id` de `catia_command`
 
-Los `command_id` usados en `part_design.json`, `assembly_design.json`,
-`sketcher.json`, `drafting.json` y `generative_shape_design.json` (p. ej.
-`"PartDesign.Pad"`, `"Assembly.CoincidenceConstraint"`, `"Sketcher.Line"`,
-`"Drafting.Dimension"`, `"GSD.Extrude"`) son nombres de comando **plausibles
-pero no verificados contra una instalación real de CATIA V5**. La investigación
-del proyecto (`catia_automation_api.md`) confirma que los identificadores de
-comando exactos deben descubrirse en la instalación real vía el menú
-View > "Command List…" (o Tools > Customize > Commands), y que `StartCommand`
-es el mecanismo correcto para invocarlos — pero no aporta un listado verbatim
-de IDs por comando. Antes de usar estos perfiles en producción, el usuario
-debería:
+**Hallazgo confirmado durante la verificación manual** (un diálogo real de
+CATIA mostró "Unknown command: View.Isometric" al probar el perfil base):
+los `command_id` reales de `StartCommand` en CATIA V5 **no usan un formato de
+espacio de nombres con puntos** como `"View.FitAll"` o `"Edit.Undo"` — son
+cadenas de texto simples, normalmente muy parecidas (o idénticas) al nombre
+que se ve en pantalla, como `"Fit All In"` o `"Undo"`. Esto se confirmó
+buscando ejemplos reales de macros (`CATIA.StartCommand "Fit All In"`,
+`CATIA.StartCommand "Undo"`) en foros de CATIA (eng-tips.com).
 
-1. Abrir "Command List…" en cada workbench relevante.
-2. Confirmar/corregir el `command_id` de cada binding `catia_command` en los
-   JSON de este directorio.
+En base a esto:
+- `base.json` → `"base.square.fit_all"` ya usa `"Fit All In"` (confirmado).
+- `part_design.json`, `assembly_design.json`, `drafting.json`,
+  `generative_shape_design.json`, `sketcher.json` → el binding de "Undo" ya
+  usa `"Undo"` (confirmado).
+- **El resto de `command_id`** en esos mismos archivos (p. ej.
+  `"PartDesign.Pad"`, `"Assembly.CoincidenceConstraint"`, `"Sketcher.Line"`,
+  `"Drafting.Dimension"`, `"GSD.Extrude"`, `"Edit.Update"`,
+  `"Edit.UpdateAll"`, `"View.Isometric"`, `"View.NormalView"`,
+  `"View.NamedViews"`) **siguen siendo placeholders con el formato antiguo,
+  casi con toda seguridad incorrectos** — no se corrigieron todos porque no
+  hay evidencia directa de la cadena exacta para cada uno, y reemplazar un
+  placeholder por otro sin verificar no aporta nada.
 
-Los comandos de cámara (`catia_camera`, operaciones `rotate`/`translate`/`zoom`)
-y de teclado/ratón (`keyboard`, `mouse_move`, `mouse_button`) no dependen de
+### Cómo obtener el `command_id` real de cualquier comando (rápido)
+
+El método más fiable y rápido, más que buscar a mano en "Tools > Customize >
+Commands" uno por uno:
+
+1. En CATIA, **Tools (Herramientas) > Macro > Start Recording** (grabar macro).
+2. Ejecuta manualmente, con el ratón, la acción que quieras mapear (p. ej.
+   clic en el botón "Fit All", o "Iso View", o "Undo").
+3. **Stop Recording** (detener grabación) y guarda la macro.
+4. Abre la macro en el editor VBA (Alt+F11 o Tools > Macro > Macros > Edit) —
+   verás una línea literal `CATIA.StartCommand "..."` con la cadena EXACTA
+   que usa tu instalación. Copia esa cadena tal cual al `command_id` del JSON.
+
+Repite esto por cada comando de los perfiles que quieras usar. Los comandos
+de cámara (`catia_camera`, operaciones `rotate`/`translate`/`zoom`) y de
+teclado/ratón (`keyboard`, `mouse_move`, `mouse_button`) no dependen de
 `command_id` y no requieren esta verificación.

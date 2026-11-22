@@ -47,7 +47,7 @@
     {
       "id": "dft.share.undo",
       "input": { "device": "ds4", "control": "share" },
-      "target": { "type": "catia_command", "command_id": "Edit.Undo" }
+      "target": { "type": "catia_command", "command_id": "Undo" }
     },
     {
       "id": "dft.options.pause",

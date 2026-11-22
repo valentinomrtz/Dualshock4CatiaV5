@@ -47,7 +47,7 @@
     {
       "id": "skt.share.undo",
       "input": { "device": "ds4", "control": "share" },
-      "target": { "type": "catia_command", "command_id": "Edit.Undo" }
+      "target": { "type": "catia_command", "command_id": "Undo" }
     },
     {
       "id": "skt.options.pause",

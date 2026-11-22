@@ -16,7 +16,7 @@
     {
       "id": "base.square.fit_all",
       "input": { "device": "ds4", "control": "square" },
-      "target": { "type": "catia_command", "command_id": "View.FitAll" }
+      "target": { "type": "catia_command", "command_id": "Fit All In" }
     },
     {
       "id": "base.circle.normal_view",
