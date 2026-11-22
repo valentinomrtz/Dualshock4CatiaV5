@@ -79,10 +79,12 @@ from ds4catia.hid.ds4_report import (
     parse_usb_report,
 )
 
+_HID_IMPORT_ERROR: Optional[BaseException] = None
 try:
     import hid  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover - exercised only when `hid` is missing
+except Exception as _exc:  # pragma: no cover - exercised only when `hid` is missing
     hid = None  # type: ignore[assignment]
+    _HID_IMPORT_ERROR = _exc
 
 
 __all__ = [
@@ -163,6 +165,19 @@ def _require_hid() -> None:
     similar) -- correct, but unhelpful to whoever hits it.
     """
     if hid is None:
+        if _HID_IMPORT_ERROR is not None:
+            # `hid` is installed but failed to import for some other
+            # reason (missing native dependency, ABI mismatch, ...) --
+            # surface that real error instead of implying it's simply
+            # not installed, which sends people down the wrong path.
+            raise RuntimeError(
+                "The 'hid' module is installed but failed to import: "
+                f"{type(_HID_IMPORT_ERROR).__name__}: {_HID_IMPORT_ERROR}. "
+                "This usually means a native dependency the compiled "
+                "'hidapi' package needs isn't present on this machine "
+                "(e.g. the Microsoft Visual C++ Redistributable runtime "
+                "on Windows) -- see docs/troubleshooting.md."
+            ) from _HID_IMPORT_ERROR
         raise RuntimeError(
             "The 'hid' module (hidapi Python bindings; PyPI package "
             "'hidapi', pinned as hidapi>=0.14 for Windows in this "
