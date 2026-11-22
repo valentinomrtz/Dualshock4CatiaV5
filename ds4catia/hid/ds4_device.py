@@ -65,6 +65,8 @@ against a real Bluetooth-paired controller.
 
 from __future__ import annotations
 
+import os
+import sys
 import threading
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -78,6 +80,62 @@ from ds4catia.hid.ds4_report import (
     parse_bt_report,
     parse_usb_report,
 )
+
+
+def _add_hidapi_dll_search_paths() -> None:
+    """Make ``hidapi.dll`` findable by the ``hid`` package's bare-name
+    load, on Windows, before attempting ``import hid`` below.
+
+    Since Python 3.8, ``ctypes``/``os.add_dll_directory`` changed how
+    DLLs are resolved on Windows for security reasons: the current
+    working directory and the directory containing ``python.exe`` are
+    **no longer searched automatically** for a bare ``ctypes.CDLL("some.dll")``
+    call, unlike on Python <3.8 or on most other platforms. Neither PyPI
+    package that provides the ``hid`` module (``hid`` or ``hidapi``)
+    bundles the actual ``hidapi.dll`` -- the user is expected to place
+    it somewhere themselves (see docs/installation.md) -- so without
+    this, `import hid` reliably fails with "Unable to load any of the
+    following libraries: ... hidapi.dll ..." even when the file is
+    sitting right next to this project's files, confirmed on a real
+    Windows 11 machine during manual verification.
+
+    ``os.add_dll_directory`` (added in Python 3.8, Windows-only) is the
+    documented, correct fix: it explicitly adds a directory to the
+    per-process DLL search path in a way ``ctypes``'s default load *does*
+    respect, unlike PATH/cwd tricks. We add a small set of reasonable
+    candidate directories, silently skipping any that don't exist --
+    this function must never raise, since it runs unconditionally at
+    import time on every platform.
+    """
+
+    if sys.platform != "win32" or not hasattr(os, "add_dll_directory"):
+        return
+
+    candidates = []
+
+    env_dir = os.environ.get("DS4CATIA_HIDAPI_DLL_DIR")
+    if env_dir:
+        candidates.append(env_dir)
+
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(this_dir)  # ds4catia/hid/ (an installed package layout)
+    # ds4catia/ -> project root, for a `pip install -e .` source checkout
+    # where the user drops hidapi.dll next to pyproject.toml.
+    candidates.append(os.path.dirname(os.path.dirname(this_dir)))
+    candidates.append(os.getcwd())
+    if getattr(sys, "frozen", False):  # pragma: no cover - PyInstaller-only
+        candidates.append(os.path.dirname(sys.executable))
+
+    for directory in candidates:
+        if not directory or not os.path.isdir(directory):
+            continue
+        try:
+            os.add_dll_directory(directory)
+        except (OSError, ValueError):  # pragma: no cover - best-effort only
+            pass
+
+
+_add_hidapi_dll_search_paths()
 
 _HID_IMPORT_ERROR: Optional[BaseException] = None
 try:
