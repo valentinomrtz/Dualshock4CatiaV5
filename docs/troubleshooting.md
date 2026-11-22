@@ -35,6 +35,35 @@ pip install hidapi
 y confirma con `python -c "import hid; print(hid.__file__)"` que ya no da
 error antes de volver a intentar `ds4catia --list-devices`.
 
+## `pip install hidapi` falla pidiendo "Microsoft Visual C++ 14.0 or greater"
+
+**Confirmado durante la verificación manual**, en una máquina con una versión
+de Python muy reciente (p. ej. 3.15) recién salida. `hidapi` es una
+extensión compilada en C; PyPI solo ofrece paquetes ya compilados
+("wheels") para las versiones de Python que llevan ya un tiempo publicadas.
+Si usas una versión de Python demasiado nueva, puede que `hidapi` (u otra
+dependencia) aún no tenga wheel para ella, y pip intenta compilarla desde
+el código fuente — lo cual requiere tener instalado el compilador de
+Microsoft C++ ("Build Tools"), que no suele venir instalado por defecto.
+
+La forma más rápida de evitar esto, sin instalar varios GB de herramientas
+de compilación, es usar una versión de Python algo más asentada (3.11, 3.12
+o 3.13) solo para este proyecto, en un entorno virtual aislado de tu Python
+del sistema:
+
+```bash
+py list
+py install 3.12
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install -e .[dev]
+```
+
+(`py list`/`py install` requieren el "Python Install Manager" de
+python.org; si no lo tienes, descarga el instalador de Python 3.12 desde
+python.org directamente). A partir de ahí, usa siempre `python`/`pip`
+**dentro de ese entorno virtual activado** para este proyecto.
+
 ## El antivirus/EDR corporativo marca la aplicación
 
 **Esto es lo esperado en un primer despliegue, no un fallo del software.**

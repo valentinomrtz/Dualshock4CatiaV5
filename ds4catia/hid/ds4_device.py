@@ -164,13 +164,19 @@ def _require_hid() -> None:
     """
     if hid is None:
         raise RuntimeError(
-            "The 'hid' package (hidapi Python bindings; PyPI package "
-            "'hid', pinned as hid>=1.0.5 for Windows in this project's "
-            "pyproject.toml) is not installed in this environment. Raw "
-            "HID access to a DS4 controller requires it -- install it "
-            "with `pip install hid` on a machine where the controller "
-            "will actually be read (this dev environment is Linux with "
-            "no controller attached, so this is expected here)."
+            "The 'hid' module (hidapi Python bindings; PyPI package "
+            "'hidapi', pinned as hidapi>=0.14 for Windows in this "
+            "project's pyproject.toml) is not installed in this "
+            "environment. Raw HID access to a DS4 controller requires "
+            "it -- install it with `pip install hidapi` on a machine "
+            "where the controller will actually be read (this dev "
+            "environment is Linux with no controller attached, so this "
+            "is expected here). Do NOT install PyPI's separate 'hid' "
+            "package instead -- it imports under the same name but does "
+            "not bundle the compiled hidapi library, and fails with an "
+            "'Unable to load any of the following libraries' ImportError "
+            "unless that library is already present on the system (see "
+            "docs/troubleshooting.md)."
         )
 
 
