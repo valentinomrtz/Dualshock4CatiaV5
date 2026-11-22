@@ -9,7 +9,14 @@ dependencies = [
     "pydantic>=2",
     "jsonschema>=4",
     "PySide6>=6.6",
-    "hid>=1.0.5; sys_platform == 'win32'",
+    # PyPI "hidapi" (trezor-maintained cython-hidapi), NOT PyPI "hid"
+    # (apmorton's ctypes wrapper): both import as `hid`, but only this
+    # one bundles the compiled hidapi library in its Windows wheels.
+    # "hid" instead expects hidapi.dll to already be present on the
+    # system and fails to import with "Unable to load any of the
+    # following libraries: ... hidapi.dll ..." when it isn't -- seen in
+    # the wild during manual verification on a real Windows machine.
+    "hidapi>=0.14; sys_platform == 'win32'",
     "pywin32>=306; sys_platform == 'win32'",
     "pycatia>=0.9; sys_platform == 'win32'",
 ]
