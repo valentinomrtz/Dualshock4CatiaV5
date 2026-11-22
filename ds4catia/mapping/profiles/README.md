@@ -10,6 +10,19 @@ campos de metadatos extra dentro del propio JSON del perfil (p. ej. para marcar
 un placeholder sin verificar). Por eso ese estado se documenta aquí, fuera del
 esquema estricto, en vez de dentro de cada JSON.
 
+## Binding conocido como no funcional: `base.l1.cross.add_to_selection`
+
+El binding `cross` dentro de la capa `base.l1-shift` en `base.json` usa
+`catia_selection` con `operation: "add"` y sin `query`. La API COM real de
+`Selection.Add` espera una **referencia a un objeto** de CATIA, no una
+cadena de texto (ver el docstring de `ComCatiaBackend.selection_add` en
+`ds4catia/catia/com_backend.py`) — así que este binding, tal como está
+definido, muy probablemente no haga nada útil y aparezca en `--verbose`
+como un `catia_error` (type mismatch de COM). No se ha corregido a ciegas
+porque arreglarlo bien requiere decidir una UX real (¿seleccionar por texto
+con `Search`, que reemplaza la selección entera, en vez de añadir un
+objeto concreto?) que no se puede validar sin una sesión de CATIA real.
+
 ## Estado de `auto_activate.match` por perfil
 
 | Perfil (`profile_id`)       | Archivo                         | `auto_activate.match` | Estado                              | Qué debe hacer el usuario |

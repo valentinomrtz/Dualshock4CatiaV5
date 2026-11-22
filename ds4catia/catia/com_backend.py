@@ -507,12 +507,29 @@ class ComCatiaBackend(CatiaBackend):
     def selection_add(self, query: str) -> None:
         """See :meth:`CatiaBackend.selection_add`.
 
-        ``query`` is passed straight through to ``Selection.Add``. Per
-        the research notes, adding an object of the wrong type (e.g. a
-        ``Document`` instead of a ``Product``/feature) raises a COM
-        runtime error (438) rather than failing gracefully -- that is
-        translated to :class:`CatiaCommandError` like any other COM
-        failure here.
+        .. warning::
+            **Known API mismatch, confirmed against pycatia's
+            auto-generated ``selection.py``**: the real
+            ``Selection.Add`` COM method takes ``AnyObject iObject`` --
+            an actual CATIA object reference (a feature/element already
+            obtained some other way, e.g. from ``Search()``'s results)
+            -- NOT a search-grammar string. This method nonetheless
+            passes ``query`` straight through as a plain string, so
+            calling it with a search-style string (which is what the
+            default profile's bindings currently do, since they have no
+            way to obtain a real object reference) will very likely
+            raise a COM type-mismatch error rather than doing anything
+            useful, rather than quietly succeeding. If you need
+            "select the objects matching a text query", use
+            :meth:`selection_search` instead, which correctly maps to
+            the real ``Selection.Search(CATBSTR)`` method and is built
+            for exactly that. This is left unfixed (rather than silently
+            rerouted to ``Search``) because the two are not equivalent --
+            ``Add`` appends one specific object to whatever is already
+            selected, while ``Search`` replaces the whole selection with
+            its query's matches -- and picking one over the other
+            without a real CATIA session to verify the resulting UX
+            would just be trading one unverified guess for another.
         """
         self._run_guarded(
             f"selection_add({query!r})",
