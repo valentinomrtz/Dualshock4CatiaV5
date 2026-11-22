@@ -409,3 +409,137 @@ def test_run_macro_com_error_from_run_macro_itself_not_retried_via_evaluate():
         backend.run_macro("MyMacro")
 
     assert app.evaluate_calls == []
+
+
+# -- single dedicated COM thread (serializes cross-thread access) ------------
+#
+# Confirmed on a real Windows + CATIA V5 machine during manual verification:
+# calling this backend from more than one Python thread at once (the real
+# Ds4CatiaDaemon does this -- the HID-read thread and the workbench-poll
+# thread both call into CatiaBackend) produced intermittent COM errors that
+# looked like "not connected", because CATIA's COM server is a
+# single-threaded-apartment object and touching the same interface pointer
+# from multiple OS threads without apartment marshaling is illegal. These
+# tests fake `pythoncom` being present (so the real environment's "no COM to
+# protect, just run inline" fallback does not mask the serialization logic)
+# and verify the dedicated-COM-thread mechanism itself: that it actually
+# funnels every call through one single thread, and that concurrent callers
+# from several threads never overlap on that thread.
+
+
+@pytest.fixture()
+def fake_pythoncom(monkeypatch):
+    """Stand in for the real (Windows-only) ``pythoncom`` module so
+    ``_run_on_com_thread`` takes its real (threaded) path instead of its
+    Linux no-pythoncom "run inline" fallback."""
+
+    fake = types.SimpleNamespace(
+        CoInitialize=lambda: None, CoUninitialize=lambda: None
+    )
+    monkeypatch.setattr("ds4catia.catia.com_backend.pythoncom", fake)
+    return fake
+
+
+def test_run_on_com_thread_executes_on_a_single_dedicated_thread(fake_pythoncom):
+    import threading
+
+    backend = ComCatiaBackend()
+    seen_thread_ids = set()
+
+    def probe():
+        seen_thread_ids.add(threading.get_ident())
+        return "ok"
+
+    results = [backend._run_on_com_thread(probe) for _ in range(5)]
+
+    assert results == ["ok"] * 5
+    # All five ran on the same thread, and that thread is neither this
+    # test thread nor any new thread created per call -- one dedicated
+    # worker, reused.
+    assert len(seen_thread_ids) == 1
+    assert threading.get_ident() not in seen_thread_ids
+
+
+def test_run_on_com_thread_serializes_concurrent_callers(fake_pythoncom):
+    import threading
+    import time
+
+    backend = ComCatiaBackend()
+    overlap_detected = threading.Event()
+    currently_inside = {"count": 0}
+    lock = threading.Lock()
+
+    def slow_com_call():
+        with lock:
+            currently_inside["count"] += 1
+            if currently_inside["count"] > 1:
+                overlap_detected.set()
+        time.sleep(0.05)  # long enough for a second concurrent call to overlap, if unserialized
+        with lock:
+            currently_inside["count"] -= 1
+        return threading.get_ident()
+
+    results: list = []
+    results_lock = threading.Lock()
+
+    def caller():
+        result = backend._run_on_com_thread(slow_com_call)
+        with results_lock:
+            results.append(result)
+
+    callers = [threading.Thread(target=caller) for _ in range(4)]
+    for t in callers:
+        t.start()
+    for t in callers:
+        t.join(timeout=5)
+
+    assert not overlap_detected.is_set(), "two calls ran on the COM thread at the same time"
+    assert len(results) == 4
+    assert len(set(results)) == 1  # every call really did land on the same one thread
+
+
+def test_run_on_com_thread_propagates_exceptions_to_the_calling_thread(fake_pythoncom):
+    backend = ComCatiaBackend()
+
+    def boom():
+        raise _ComError("simulated COM failure on the dedicated thread")
+
+    with pytest.raises(_ComError):
+        backend._run_on_com_thread(boom)
+
+
+def test_connect_and_is_connected_route_through_the_com_thread(monkeypatch, fake_pythoncom):
+    import threading
+
+    seen_thread_ids = set()
+
+    class RecordingApp(FakeApplication):
+        @property
+        def Visible(self):
+            seen_thread_ids.add(threading.get_ident())
+            return True
+
+        @Visible.setter
+        def Visible(self, _value):
+            pass  # FakeApplication.__init__ assigns self.Visible = True
+
+    app = RecordingApp()
+
+    class _RecordingDispatch:
+        def __call__(self, progid):
+            seen_thread_ids.add(threading.get_ident())
+            return app
+
+    fake_win32com = types.SimpleNamespace(
+        client=types.SimpleNamespace(Dispatch=_RecordingDispatch(), GetObject=lambda **k: app)
+    )
+    monkeypatch.setattr("ds4catia.catia.com_backend.win32com", fake_win32com)
+
+    backend = ComCatiaBackend()
+    backend.connect()
+    assert backend.is_connected() is True
+
+    # Both connect()'s Dispatch() and is_connected()'s Visible probe must
+    # have run on the dedicated COM thread, never on this test thread.
+    assert threading.get_ident() not in seen_thread_ids
+    assert len(seen_thread_ids) == 1

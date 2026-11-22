@@ -62,13 +62,20 @@ a real CATIA V5 installation.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+import queue
+import threading
+from typing import Any, Callable, Optional
 
 from ds4catia.catia.interface import (
     CatiaBackend,
     CatiaCommandError,
     CatiaConnectionError,
 )
+
+try:
+    import pythoncom  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover - exercised only without pywin32
+    pythoncom = None  # type: ignore[assignment]
 
 # ---------------------------------------------------------------------------
 # Lazy / defensive imports of the Windows-only COM modules.
@@ -137,6 +144,85 @@ class ComCatiaBackend(CatiaBackend):
 
     def __init__(self) -> None:
         self._app: Optional[Any] = None
+        self._com_thread_lock = threading.Lock()
+        self._com_thread: Optional[threading.Thread] = None
+        self._com_work_queue: "queue.Queue" = queue.Queue()
+
+    # -- single dedicated COM thread ------------------------------------------
+    #
+    # CATIA's COM server is a classic single-threaded-apartment (STA)
+    # object. Using the same COM interface pointer from more than one OS
+    # thread without explicit apartment marshaling is illegal and produces
+    # exactly the symptom confirmed during manual verification on a real
+    # machine: calls sometimes succeed and sometimes fail with a COM error
+    # that looks like "not connected", non-deterministically, because
+    # Ds4CatiaDaemon's HID-read thread and its workbench-poll thread (plus
+    # whatever thread first called connect()) were all calling into this
+    # backend directly. Routing every actual COM touch through one
+    # dedicated thread -- created once, CoInitialize()'d once, and fed
+    # work through a queue -- is the standard, documented fix; callers on
+    # any thread still get an ordinary blocking method call, they just no
+    # longer touch the COM pointer themselves.
+
+    def _ensure_com_thread(self) -> None:
+        with self._com_thread_lock:
+            if self._com_thread is None or not self._com_thread.is_alive():
+                self._com_thread = threading.Thread(
+                    target=self._com_thread_main,
+                    name="ComCatiaBackend-COM",
+                    daemon=True,
+                )
+                self._com_thread.start()
+
+    def _com_thread_main(self) -> None:
+        if pythoncom is not None:
+            try:
+                pythoncom.CoInitialize()
+            except Exception:  # pragma: no cover - best-effort only
+                pass
+        try:
+            while True:
+                func, result_box, done = self._com_work_queue.get()
+                try:
+                    result_box["value"] = func()
+                except BaseException as exc:  # noqa: BLE001 - handed back to the caller's thread
+                    result_box["error"] = exc
+                finally:
+                    done.set()
+        finally:  # pragma: no cover - thread never intentionally stopped
+            if pythoncom is not None:
+                try:
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
+
+    def _run_on_com_thread(self, func: Callable[[], Any]) -> Any:
+        """Execute ``func`` (a zero-arg callable making COM calls) on
+        this backend's single dedicated COM thread, blocking the calling
+        thread until it completes, and either return its result or
+        re-raise whatever it raised -- on the calling thread, so existing
+        ``except _ComError``/``except AttributeError`` translation around
+        call sites keeps working unchanged.
+
+        On a platform without ``pythoncom`` (this project's Linux dev/
+        test environment, where there is no real COM to serialize access
+        to in the first place), this runs ``func`` inline instead --
+        every existing test built against a fake ``self._app`` keeps
+        working unmodified, since there is nothing to route through a
+        thread when there's no real COM apartment to protect.
+        """
+
+        if pythoncom is None:
+            return func()
+
+        self._ensure_com_thread()
+        result_box: dict = {}
+        done = threading.Event()
+        self._com_work_queue.put((func, result_box, done))
+        done.wait()
+        if "error" in result_box:
+            raise result_box["error"]
+        return result_box["value"]
 
     # -- internal helpers ---------------------------------------------------
 
@@ -180,7 +266,7 @@ class ComCatiaBackend(CatiaBackend):
         wrapping shared by every public method below."""
         self._require_connected()
         try:
-            return action()
+            return self._run_on_com_thread(action)
         except _ComError as exc:
             raise CatiaCommandError(f"CATIA rejected {description}: {exc}") from exc
         except AttributeError as exc:
@@ -210,33 +296,39 @@ class ComCatiaBackend(CatiaBackend):
                 "installed and a running CATIA V5 instance."
             )
 
-        last_error: Optional[Exception] = None
-        try:
-            app = win32com.client.Dispatch(_CATIA_PROGID)
-        except _ComError as exc:
-            last_error = exc
-            app = None
-        except Exception as exc:  # pragma: no cover - defensive, non-COM failure
-            last_error = exc
-            app = None
-
-        if app is None:
+        def do() -> Any:
+            last_error: Optional[Exception] = None
             try:
-                app = win32com.client.GetObject(Class=_CATIA_PROGID)
+                app = win32com.client.Dispatch(_CATIA_PROGID)
             except _ComError as exc:
-                raise CatiaConnectionError(
-                    "Could not connect to CATIA via COM (tried Dispatch and "
-                    f"GetObject for {_CATIA_PROGID!r}); is CATIA V5 running? "
-                    f"Last error: {exc}"
-                ) from exc
-            except Exception as exc:  # pragma: no cover - defensive
-                raise CatiaConnectionError(
-                    "Could not connect to CATIA via COM (tried Dispatch and "
-                    f"GetObject for {_CATIA_PROGID!r}); is CATIA V5 running? "
-                    f"Last error: {last_error or exc}"
-                ) from exc
+                last_error = exc
+                app = None
+            except Exception as exc:  # pragma: no cover - defensive, non-COM failure
+                last_error = exc
+                app = None
 
-        self._app = app
+            if app is None:
+                try:
+                    app = win32com.client.GetObject(Class=_CATIA_PROGID)
+                except _ComError as exc:
+                    raise CatiaConnectionError(
+                        "Could not connect to CATIA via COM (tried Dispatch "
+                        f"and GetObject for {_CATIA_PROGID!r}); is CATIA V5 "
+                        f"running? Last error: {exc}"
+                    ) from exc
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise CatiaConnectionError(
+                        "Could not connect to CATIA via COM (tried Dispatch "
+                        f"and GetObject for {_CATIA_PROGID!r}); is CATIA V5 "
+                        f"running? Last error: {last_error or exc}"
+                    ) from exc
+
+            return app
+
+        # Dispatch/GetObject themselves must run on the same dedicated
+        # COM thread every later call will use, so the resulting pointer
+        # is only ever touched from that one apartment-owning thread.
+        self._app = self._run_on_com_thread(do)
 
     def disconnect(self) -> None:
         """Release the reference to the COM ``Application`` object.
@@ -269,9 +361,13 @@ class ComCatiaBackend(CatiaBackend):
         """
         if self._app is None:
             return False
-        try:
+
+        def probe() -> bool:
             self._app.Visible  # noqa: B018 - property access is the probe
             return True
+
+        try:
+            return self._run_on_com_thread(probe)
         except _ComError:
             self._app = None
             return False
