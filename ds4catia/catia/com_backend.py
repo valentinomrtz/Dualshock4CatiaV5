@@ -30,10 +30,18 @@ Key points from that research this module follows:
   documented on the abstract method in ``interface.py``).
 - ``Application.GetWorkbenchId()`` for a one-shot read of the active
   workbench; there is no change-notification event for this.
-- Camera control via ``ActiveDocument.ActiveWindow.ActiveViewer``, whose
+- Camera control via ``Application.ActiveWindow.ActiveViewer``, whose
   ``Rotate``/``Translate`` methods and whose ``Viewpoint3D``/``Camera3D``
   zoom factor are the documented (via pycatia/forum sources) way to drive
-  the 3D viewport programmatically.
+  the 3D viewport programmatically. ``ActiveWindow`` is a property of
+  ``Application`` itself, NOT of ``Document`` -- confirmed against the
+  CAA V5 Visual Basic Help text embedded in pycatia's auto-generated
+  ``application.py`` (``Application.active_window`` ->
+  ``self.com_object.ActiveWindow``), after a real-world manual
+  verification run hit "Could not access ActiveDocument.ActiveWindow"
+  on every single camera dispatch: this module originally (incorrectly)
+  chained ``ActiveDocument.ActiveWindow``, which does not exist on
+  ``Document`` at all.
 - Selection via ``ActiveDocument.Selection`` (``Add``/``Clear``/``Search``).
 - Macros: ``Application.RunMacro`` is attempted first; if the installed
   COM surface does not expose it (older/alternate CATIA COM surfaces, or
@@ -235,7 +243,7 @@ class ComCatiaBackend(CatiaBackend):
 
     def _navigate(self, path_description: str, getter) -> Any:
         """Run ``getter`` (a zero-arg callable that walks a chain of COM
-        attributes, e.g. ``ActiveDocument.ActiveWindow.ActiveViewer``) and
+        attributes, e.g. ``ActiveWindow.ActiveViewer``) and
         translate any failure into a clear :class:`CatiaCommandError`.
 
         Navigating a COM attribute chain like this raises an
@@ -406,15 +414,27 @@ class ComCatiaBackend(CatiaBackend):
     # -- camera ---------------------------------------------------------------
 
     def _active_viewer(self) -> Any:
-        """Return ``ActiveDocument.ActiveWindow.ActiveViewer``, the
-        documented entry point (per research notes / pycatia) for camera
+        """Return ``Application.ActiveWindow.ActiveViewer``, the
+        documented entry point (confirmed against pycatia's
+        auto-generated ``application.py``/``window.py``, themselves
+        generated from real CATIA V5 R28 V5Automation files) for camera
         control: it exposes ``Rotate``/``Translate`` directly and is also
         where a ``Viewpoint3D``/``Camera3D`` object's zoom factor is read
         from/written back to.
+
+        ``ActiveWindow`` is a property of ``Application``, not of
+        ``Document`` -- an earlier version of this method incorrectly
+        chained ``self._app.ActiveDocument.ActiveWindow``, which fails
+        every single time with "no active document/window/viewer?" since
+        ``ActiveWindow`` simply does not exist on ``Document`` at all.
+        Confirmed as a real bug during manual verification on a live
+        CATIA V5 instance, and fixed against pycatia's
+        ``Application.active_window`` property (``self.com_object
+        .ActiveWindow``).
         """
         return self._navigate(
-            "ActiveDocument.ActiveWindow.ActiveViewer",
-            lambda: self._app.ActiveDocument.ActiveWindow.ActiveViewer,
+            "ActiveWindow.ActiveViewer",
+            lambda: self._app.ActiveWindow.ActiveViewer,
         )
 
     def camera_rotate(self, axis: tuple, angle_deg: float) -> None:

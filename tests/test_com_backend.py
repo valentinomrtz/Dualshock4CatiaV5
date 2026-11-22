@@ -151,18 +151,25 @@ class FakeSelection:
 
 
 class FakeDocument:
-    def __init__(self, viewer=None, selection=None):
-        self.ActiveWindow = types.SimpleNamespace(ActiveViewer=viewer)
+    def __init__(self, selection=None):
         self.Selection = selection
 
 
 class FakeApplication:
     """A plain Python object standing in for the COM ``Application``
-    object ``win32com.client.Dispatch`` would normally return."""
+    object ``win32com.client.Dispatch`` would normally return.
 
-    def __init__(self, active_document=None):
+    ``ActiveWindow`` lives directly on ``Application`` (confirmed
+    against pycatia's auto-generated ``application.py``) -- NOT nested
+    under ``ActiveDocument``, which is where this backend incorrectly
+    looked before a real-world bug fix. ``Selection`` stays under
+    ``ActiveDocument``, which is correct per pycatia's ``document.py``.
+    """
+
+    def __init__(self, active_document=None, active_window=None):
         self.Visible = True
         self.ActiveDocument = active_document
+        self.ActiveWindow = active_window
         self.start_command_calls = []
         self.run_macro_calls = []
         self.evaluate_calls = []
@@ -258,9 +265,13 @@ def test_get_workbench_id_returns_app_value():
 # -- camera ---------------------------------------------------------------------
 
 
+def _fake_window(viewer) -> "types.SimpleNamespace":
+    return types.SimpleNamespace(ActiveViewer=viewer)
+
+
 def test_camera_rotate_calls_viewer_rotate_with_axis_as_list():
     viewer = FakeViewer()
-    app = FakeApplication(active_document=FakeDocument(viewer=viewer))
+    app = FakeApplication(active_window=_fake_window(viewer))
     backend = _connected_backend(app)
 
     backend.camera_rotate((0, 0, 1), 90.0)
@@ -270,7 +281,7 @@ def test_camera_rotate_calls_viewer_rotate_with_axis_as_list():
 
 def test_camera_translate_calls_viewer_translate():
     viewer = FakeViewer()
-    app = FakeApplication(active_document=FakeDocument(viewer=viewer))
+    app = FakeApplication(active_window=_fake_window(viewer))
     backend = _connected_backend(app)
 
     backend.camera_translate((1, 2, 3))
@@ -280,7 +291,7 @@ def test_camera_translate_calls_viewer_translate():
 
 def test_camera_zoom_sets_zoom_and_reassigns_viewpoint():
     viewer = FakeViewer()
-    app = FakeApplication(active_document=FakeDocument(viewer=viewer))
+    app = FakeApplication(active_window=_fake_window(viewer))
     backend = _connected_backend(app)
 
     backend.camera_zoom(2.5)
@@ -289,8 +300,8 @@ def test_camera_zoom_sets_zoom_and_reassigns_viewpoint():
     assert viewer.updated is True
 
 
-def test_camera_rotate_with_no_active_document_raises_command_error():
-    app = FakeApplication(active_document=None)
+def test_camera_rotate_with_no_active_window_raises_command_error():
+    app = FakeApplication(active_window=None)
     backend = _connected_backend(app)
 
     with pytest.raises(CatiaCommandError):
@@ -302,7 +313,7 @@ def test_camera_translate_com_error_translated_to_command_error():
         def Translate(self, vector):
             raise _ComError("CATIA refused the translate")
 
-    app = FakeApplication(active_document=FakeDocument(viewer=ExplodingViewer()))
+    app = FakeApplication(active_window=_fake_window(ExplodingViewer()))
     backend = _connected_backend(app)
 
     with pytest.raises(CatiaCommandError):
