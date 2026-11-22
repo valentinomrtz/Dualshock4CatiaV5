@@ -3,7 +3,7 @@
 Este proyecto se desarrolló en un contenedor Linux sin Windows, sin CATIA V5
 y sin un mando DualShock 4 físico. Toda la lógica pura (parseo de reportes
 HID, el motor de mapeo, el modelo de perfiles, el enrutado de acciones) tiene
-tests automatizados que pasan (293 tests al momento de escribir esto), pero
+tests automatizados que pasan (305 tests al momento de escribir esto), pero
 **el código Windows-only nunca se ha ejecutado contra hardware o CATIA
 reales**: la lectura HID real vía `hidapi`, la automatización COM vía
 `pywin32`, la inyección `SendInput`, y el comportamiento visual real de la
@@ -13,7 +13,22 @@ Esta checklist es la forma de cerrar esa brecha. Ejecútala en orden la
 primera vez que tengas disponible un PC Windows con CATIA V5 instalado y un
 DS4 a mano.
 
-## 1. Conexión COM
+> **Progreso real (actualizado tras una primera sesión de verificación
+> manual)**: la conexión COM (paso 1) y la lectura HID por USB (paso 3) ya
+> están **confirmadas** funcionando. En el camino se encontraron y
+> corrigieron varios bugs reales (no solo placeholders sin verificar):
+> errores intermitentes de "no conectado" por acceso COM concurrente desde
+> varios hilos (ver `ds4catia/catia/com_backend.py`), la navegación de
+> cámara usaba `ActiveDocument.ActiveWindow` cuando `ActiveWindow` es en
+> realidad una propiedad de `Application`, los `command_id` usaban un
+> formato con puntos que CATIA no reconoce, y la llamada de respaldo de
+> macros (`SystemService.Evaluate`) usaba solo 1 argumento en vez de los 4
+> reales. Todos estos arreglos están commiteados; lo que queda por probar
+> en la próxima sesión es justo lo que falta más abajo (rotación/zoom de
+> cámara en una demo real, IDs de workbench, IDs de comando restantes,
+> Bluetooth, etc.).
+
+## 1. Conexión COM — ✅ confirmado
 
 Con CATIA V5 abierto, desde un intérprete Python con `pywin32` instalado:
 
@@ -36,7 +51,7 @@ y ejecuta `Application.GetWorkbenchId()` (ver el procedimiento detallado en
 Corrige `auto_activate.match` en el JSON correspondiente si no coincide con
 el placeholder actual.
 
-## 3. Lectura HID cruda por USB
+## 3. Lectura HID cruda por USB — ✅ confirmado
 
 ```bash
 ds4catia --list-devices
@@ -59,6 +74,11 @@ extendido, los reportes llegan en modo básico (sin touchpad/gyro), y que
 tras `DS4Device.perform_bt_extended_handshake()` empiezan a llegar reportes
 con `report_id = 0x11` que sí incluyen touchpad y giroscopio.
 
+> ⚠️ **Confirmado**: con el mando por Bluetooth, Windows puede navegar por
+> su cuenta el menú Inicio/la UI del sistema (lee el mando directamente,
+> en paralelo a nuestra app) — no es un bug de ds4catia. Ver
+> [`troubleshooting.md`](troubleshooting.md). Prioriza USB para pruebas.
+
 ## 5. Sanity de touchpad y giroscopio/acelerómetro
 
 Con el mando quieto sobre una superficie plana, confirma que gyro/accel
@@ -78,11 +98,24 @@ vibra o la luz no cambia de color, el layout exacto de ese reporte de salida
 (marcado `# VERIFY-ON-HARDWARE` en el código) necesita corregirse contra las
 mismas fuentes comunitarias de ingeniería inversa.
 
-## 7. Una acción COM discreta
+## 7. Una acción COM discreta y la rotación de cámara con los sticks
 
-Con un binding mapeado a `catia_command` con `command_id` de un comando de
-un solo paso (p. ej. "Fit All In" → `View.FitAll`), pulsa el control
-correspondiente con CATIA en foco y confirma que la vista se ajusta.
+Dos comprobaciones distintas:
+
+1. **Comando discreto**: pulsa el botón mapeado a `catia_command` con
+   `command_id: "Fit All In"` (cuadrado, en el perfil base — ya corregido
+   al formato real, sin puntos) con CATIA en foco y confirma que la vista
+   se ajusta. Si da "Unknown command", el nombre exacto puede variar según
+   tu instalación — graba una macro haciendo clic en el botón real y lee
+   la cadena `StartCommand` que genera (ver
+   [`ds4catia/mapping/profiles/README.md`](../ds4catia/mapping/profiles/README.md)).
+2. **Rotación con el stick izquierdo**: mueve el stick izquierdo
+   izquierda/derecha (debe rotar la vista alrededor de un eje) y luego
+   arriba/abajo (debe rotar alrededor de otro eje distinto). Si solo un eje
+   del stick produce rotación y el otro no hace nada, o si sale el error
+   "Could not access ActiveWindow.ActiveViewer", avisa — son exactamente
+   los dos fallos que se corrigieron en esta sesión y conviene confirmar
+   que el arreglo funciona de verdad contra CATIA real.
 
 ## 8. `SendInput` con foco real
 
