@@ -9,6 +9,30 @@ no solo problemas hipotéticos. Como el proyecto se construyó sin acceso a
 Windows/CATIA/mando reales, varios de estos puntos todavía no se han podido
 confirmar en la práctica — se indica explícitamente dónde es así.
 
+## Windows navega solo por el menú Inicio / la UI mientras el mando está por Bluetooth
+
+**Confirmado durante la verificación manual**: con el DS4 emparejado por
+Bluetooth, al abrir el menú Inicio de Windows (o cualquier UI del sistema
+navegable con mando), la selección se movía sola, como si una flecha
+estuviera mantenida pulsada — sin que `ds4catia` estuviera haciendo nada con
+ese control. Al desconectar el mando por Bluetooth, el problema desapareció
+de inmediato.
+
+Esto **no es un fallo de ds4catia**: Windows 11 tiene soporte nativo de
+navegación por mando en el menú Inicio y otras partes del shell, y como el
+proyecto deliberadamente no usa ningún driver que "oculte" el mando en
+exclusiva (ver más abajo, "no se necesita ningún driver adicional"), Windows
+puede leer el stick directamente por su cuenta al mismo tiempo que nuestra
+app, interpretando el drift/inclinación del stick como una navegación de
+UI. Es la contrapartida esperada de esa decisión de diseño.
+
+**Qué hacer:** usa **USB** como conexión principal (ya es la recomendada por
+defecto en este proyecto) — por USB no se ha observado este comportamiento.
+Si necesitas Bluetooth sí o sí y te molesta esta interferencia, revisa en
+Windows: Configuración → Bluetooth y dispositivos → Mandos de juego /
+Accesibilidad → si hay una opción para desactivar la navegación del shell
+por mando (varía según la versión de Windows 11).
+
 ## `ImportError: Unable to load any of the following libraries: ... hidapi.dll ...`
 
 **Confirmado durante la verificación manual en una máquina Windows real.**
