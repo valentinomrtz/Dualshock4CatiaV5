@@ -560,6 +560,15 @@ class ComCatiaBackend(CatiaBackend):
 
     # -- macros -----------------------------------------------------------------
 
+    #: Index of "CATVBScriptLanguage" in CATIA's CATScriptLanguage enum
+    #: (``CATVBScriptLanguage``, ``CATVBALanguage``,
+    #: ``CATBasicScriptLanguage``, ``CATJavaLanguage``,
+    #: ``CATJScriptLanguage``), confirmed against pycatia's
+    #: ``enumeration_types.cat_script_language`` tuple -- COM enums are
+    #: passed as their integer position, there is no symbolic constant
+    #: to import.
+    _CAT_VB_SCRIPT_LANGUAGE = 0
+
     def run_macro(self, name: str) -> None:
         """See :meth:`CatiaBackend.run_macro`.
 
@@ -572,12 +581,27 @@ class ComCatiaBackend(CatiaBackend):
         otherwise-unreachable calls through
         ``Application.SystemService.Evaluate()``); if the direct call
         raises ``AttributeError`` (the COM object has no such member) this
-        falls back to invoking the macro via
-        ``SystemService.Evaluate(<VBScript>)``, matching that documented
-        ``pycatia`` fallback pattern. A COM error (as opposed to a missing
-        attribute) from ``RunMacro`` itself is treated as a real failure
-        and is not retried via ``Evaluate``, since in that case the macro
-        was found but failed to run.
+        falls back to invoking the macro via ``SystemService.Evaluate``.
+        A COM error (as opposed to a missing attribute) from ``RunMacro``
+        itself is treated as a real failure and is not retried via
+        ``Evaluate``, since in that case the macro was found but failed
+        to run.
+
+        The ``Evaluate`` fallback's calling convention is confirmed
+        against pycatia's own working ``message_box``/``input_box``
+        helper methods (``application.py``), not guessed: the real COM
+        signature is ``Evaluate(iScriptText, iLanguage, iFunctionName,
+        iParameters) As CATVariant`` -- four arguments, not just a
+        script string. An earlier version of this method called
+        ``Evaluate(vbscript)`` with a single bare statement string and
+        no language/function-name/parameters arguments at all, which
+        does not match this signature and would fail as a COM
+        argument-count mismatch rather than actually running anything.
+        The fix follows pycatia's exact working pattern: wrap the call
+        in a named ``Public Function``, pass the macro name through
+        ``iParameters`` (avoiding manual VBScript string-escaping), and
+        pass ``iFunctionName`` matching that function's name so CATIA
+        knows which one to invoke.
 
         Per the research notes, CATIA macros run in-process and block the
         CATIA UI while executing -- any macro bound to controller input
@@ -594,11 +618,21 @@ class ComCatiaBackend(CatiaBackend):
                 run_macro_fn(name)
                 return
 
-            # Fallback: proxy through SystemService.Evaluate(), the same
-            # mechanism pycatia itself uses for calls not reachable
-            # directly from Python/COM.
-            escaped = name.replace('"', '""')
-            vbscript = f'CATIA.RunMacro "{escaped}"'
-            self._app.SystemService.Evaluate(vbscript)
+            # Fallback: proxy through SystemService.Evaluate(), using the
+            # exact 4-argument calling convention pycatia's own
+            # message_box()/input_box() helpers use successfully.
+            function_name = "ds4catia_run_macro"
+            script_text = (
+                f"Public Function {function_name}(macro_name)\n"
+                f"    CATIA.RunMacro macro_name\n"
+                f"    {function_name} = 0\n"
+                "End Function"
+            )
+            self._app.SystemService.Evaluate(
+                script_text,
+                self._CAT_VB_SCRIPT_LANGUAGE,
+                function_name,
+                [name],
+            )
 
         self._run_guarded(f"run_macro({name!r})", do)

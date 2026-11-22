@@ -200,8 +200,8 @@ class FakeApplication:
         app = self
 
         class _SystemService:
-            def Evaluate(self, vbscript):
-                app.evaluate_calls.append(vbscript)
+            def Evaluate(self, script_text, language, function_name, parameters):
+                app.evaluate_calls.append((script_text, language, function_name, parameters))
 
         return _SystemService()
 
@@ -401,7 +401,16 @@ def test_run_macro_falls_back_to_system_service_evaluate():
 
     assert app.run_macro_calls == []
     assert len(app.evaluate_calls) == 1
-    assert "MyMacro" in app.evaluate_calls[0]
+    script_text, language, function_name, parameters = app.evaluate_calls[0]
+    # Real Evaluate() signature (confirmed against pycatia's own working
+    # message_box()/input_box() helpers): 4 positional args, macro name
+    # passed through iParameters rather than interpolated into the
+    # script text, and iFunctionName matching the Public Function
+    # defined in iScriptText.
+    assert isinstance(script_text, str) and function_name in script_text
+    assert "Public Function" in script_text
+    assert language == ComCatiaBackend._CAT_VB_SCRIPT_LANGUAGE
+    assert parameters == ["MyMacro"]
 
 
 def test_run_macro_com_error_from_run_macro_itself_not_retried_via_evaluate():
