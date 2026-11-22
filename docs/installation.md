@@ -67,6 +67,25 @@ Si da error, consulta [`troubleshooting.md`](troubleshooting.md).
 
 ## Ejecutar la aplicación
 
+### Forma rápida: scripts `.bat`
+
+Una vez instalado (pasos de arriba ya hechos, con `.venv` creado), puedes
+simplemente hacer **doble clic** en uno de estos archivos en la raíz del
+proyecto, sin activar nada a mano ni abrir una consola tú mismo:
+
+- `run.bat` — GUI normal (acepta los mismos flags que `ds4catia`, p. ej.
+  arrastrando/editando el acceso directo para añadir `--connection usb`).
+- `run-dry.bat` — GUI con CATIA simulado (`--dry-run`): no toca CATIA
+  real, pero sí lee el mando real si está conectado.
+- `run-diagnose.bat` — sin GUI, contra CATIA real, imprimiendo en
+  consola cada acción que se dispara al tocar el mando
+  (`--headless --verbose`). El modo más útil mientras se depuran fallos.
+
+Si la ventana se cierra sola al dar error, usa `run-diagnose.bat` (deja
+la consola abierta) en vez de `run.bat` para ver qué pasó.
+
+### Forma manual (equivalente)
+
 Con la GUI (por defecto):
 
 ```bash
