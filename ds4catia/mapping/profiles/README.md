@@ -23,6 +23,32 @@ porque arreglarlo bien requiere decidir una UX real (¿seleccionar por texto
 con `Search`, que reemplaza la selección entera, en vez de añadir un
 objeto concreto?) que no se puede validar sin una sesión de CATIA real.
 
+## Binding sospechoso por diseño (no solo por el nombre): `base.dpad.standard_views`
+
+El D-pad en `base.json` está mapeado a `catia_command` con `command_id:
+"View.NamedViews"`. Además de que ese `command_id` concreto es, como todos
+los `catia_command` salvo los dos confirmados arriba, un placeholder sin
+verificar, hay un problema de diseño más de fondo: "Named Views…" es
+típicamente un comando que **abre un diálogo interactivo** (un selector de
+vistas con nombre) — y `StartCommand` solo es seguro para comandos de un
+solo paso, no interactivos (ver el docstring de
+`CatiaBackend.start_command` y la guía de soporte de IBM citada en la
+investigación: "interactions you could add after in your macro will not
+work"). Aunque se corrija el nombre exacto del comando, si de verdad abre
+un diálogo, `StartCommand` no lo manejará bien desde un binding pensado
+para dispararse repetidamente con el mando.
+
+Antes de confiar en este binding, considera reemplazarlo por un preset de
+vista de un solo paso (p. ej. el equivalente real a "Iso View"/"Front
+View"/"Top View" en lugar de un selector de vistas con nombre), una vez
+verificado su `command_id` real con el método de grabar una macro descrito
+más abajo. También nótese que, tal como está definido el control `dpad` en
+el esquema (`ds4catia/mapping/engine.py`, `_read_digital_raw`), las 4
+direcciones del D-pad se tratan como un único botón combinado — no hay
+forma hoy de asignar una acción distinta a cada dirección (arriba/abajo/
+izquierda/derecha) con un solo binding de `dpad`; eso sería una mejora de
+funcionalidad futura, no un bug de esta versión.
+
 ## Estado de `auto_activate.match` por perfil
 
 | Perfil (`profile_id`)       | Archivo                         | `auto_activate.match` | Estado                              | Qué debe hacer el usuario |
