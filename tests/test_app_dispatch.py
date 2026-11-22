@@ -97,6 +97,41 @@ def test_dispatch_catia_camera_rotate():
     assert call.args[1] == pytest.approx(0.5 * 2.0)
 
 
+def test_dispatch_catia_camera_rotate_without_axis_drives_both_stick_axes():
+    # base.json's left_stick binding has no explicit `axis` -- both the
+    # stick's X (yaw) and Y (pitch) must each produce their own Rotate()
+    # call, not just whichever component _scalar_magnitude used to pick.
+    daemon = _make_daemon()
+    target = CatiaCameraTarget(operation="rotate")
+    daemon.dispatch(_event(target, kind="analog_value", value=(0.5, -0.3)))
+    rotate_calls = [c for c in daemon.catia.call_log if c.method == "camera_rotate"]
+    assert len(rotate_calls) == 2
+    assert rotate_calls[0].args[0] == (0.0, 0.0, 1.0)
+    assert rotate_calls[0].args[1] == pytest.approx(0.5 * 2.0)
+    assert rotate_calls[1].args[0] == (1.0, 0.0, 0.0)
+    assert rotate_calls[1].args[1] == pytest.approx(-0.3 * 2.0)
+
+
+def test_dispatch_catia_camera_rotate_without_axis_skips_zero_components():
+    daemon = _make_daemon()
+    target = CatiaCameraTarget(operation="rotate")
+    daemon.dispatch(_event(target, kind="analog_value", value=(0.0, -0.3)))
+    rotate_calls = [c for c in daemon.catia.call_log if c.method == "camera_rotate"]
+    assert len(rotate_calls) == 1
+    assert rotate_calls[0].args[0] == (1.0, 0.0, 0.0)
+
+
+def test_dispatch_catia_camera_zoom_direction_follows_axis_sign():
+    daemon = _make_daemon()
+    zoom_out = CatiaCameraTarget(operation="zoom", axis=(0.0, 0.0, -1.0))
+    daemon.dispatch(_event(zoom_out, kind="analog_value", value=0.4))
+    assert daemon.catia.call_log[-1].args[0] == pytest.approx(1.0 - 0.4)
+
+    zoom_in = CatiaCameraTarget(operation="zoom", axis=(0.0, 0.0, 1.0))
+    daemon.dispatch(_event(zoom_in, kind="analog_value", value=0.4))
+    assert daemon.catia.call_log[-1].args[0] == pytest.approx(1.0 + 0.4)
+
+
 def test_dispatch_catia_camera_translate_uses_vector():
     daemon = _make_daemon()
     target = CatiaCameraTarget(operation="translate")

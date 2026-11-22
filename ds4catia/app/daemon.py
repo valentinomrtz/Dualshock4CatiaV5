@@ -304,18 +304,56 @@ class Ds4CatiaDaemon:
     def _dispatch_catia_camera(self, event: ActionEvent) -> DispatchResult:
         target = event.target
         if target.operation == "rotate":
-            axis = target.axis or (0.0, 0.0, 1.0)
-            magnitude = _scalar_magnitude(event.value)
-            self.catia.camera_rotate(axis, magnitude * _CAMERA_ROTATE_DEG_PER_TICK)
+            if target.axis is not None:
+                # An explicit single axis was requested (e.g. a trigger
+                # or a dedicated single-axis binding): use the resolved
+                # value's magnitude around exactly that axis, as before.
+                magnitude = _scalar_magnitude(event.value)
+                self.catia.camera_rotate(target.axis, magnitude * _CAMERA_ROTATE_DEG_PER_TICK)
+            else:
+                # No axis specified -- this is the common case for a
+                # stick bound whole (both X and Y) to "rotate", meant as
+                # a 2-axis orbit control. A single CATIA Rotate() call
+                # only takes one axis, so compose the orbit from two
+                # sequential single-axis rotations per tick: the stick's
+                # horizontal deflection yaws around the global vertical
+                # (Z) axis, its vertical deflection pitches around the
+                # global horizontal (X) axis. This ignores the camera's
+                # own current orientation (a "true" camera-relative
+                # orbit would need the view's live up/right vectors,
+                # which this backend does not currently read), but gives
+                # both stick axes a visible, independent effect instead
+                # of silently discarding the vertical one -- which is
+                # what a single fixed-axis Rotate() call did before this
+                # fix and is why "rotating" only ever spun around one
+                # axis regardless of how the stick was pushed.
+                x, y = _as_vector2(event.value)
+                if abs(x) > 1e-6:
+                    self.catia.camera_rotate((0.0, 0.0, 1.0), x * _CAMERA_ROTATE_DEG_PER_TICK)
+                if abs(y) > 1e-6:
+                    self.catia.camera_rotate((1.0, 0.0, 0.0), y * _CAMERA_ROTATE_DEG_PER_TICK)
         elif target.operation == "translate":
             vector = _as_vector3(event.value)
             self.catia.camera_translate(vector)
         elif target.operation == "zoom":
             magnitude = _scalar_magnitude(event.value)
+            # target.axis's sign (if given) picks the zoom direction --
+            # e.g. base.json binds L2 with axis (0,0,-1) for "zoom out"
+            # and R2 with axis (0,0,1) for "zoom in". Both triggers
+            # report a non-negative 0..1 magnitude on their own (there is
+            # no such thing as a "negative" trigger pull), so without
+            # this the two bindings were indistinguishable and both
+            # zoomed the same direction -- a real bug this fixes, not
+            # just a cosmetic one.
+            direction = 1.0
+            if target.axis is not None:
+                dominant = max(target.axis, key=abs)
+                if dominant < 0:
+                    direction = -1.0
             # Treat the resolved value as a zoom delta around 1.0 rather
             # than an absolute factor, so a centered trigger/stick is a
             # no-op zoom rather than snapping to a fixed zoom level.
-            self.catia.camera_zoom(1.0 + magnitude)
+            self.catia.camera_zoom(1.0 + direction * magnitude)
         else:  # pragma: no cover - guarded by the schema's Literal
             return DispatchResult(skipped=True, reason=f"unknown_camera_op:{target.operation}")
         return DispatchResult(skipped=False, reason=None)
