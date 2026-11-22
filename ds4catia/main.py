@@ -58,6 +58,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="List detected DS4 HID devices and exit.",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help=(
+            "Print a line to the console for every real controller input "
+            "that produces a dispatch result (press/tap/hold/analog "
+            "change). Useful to confirm real HID reading works without "
+            "needing the GUI's dry-run panel."
+        ),
+    )
     return parser
 
 
@@ -143,6 +153,15 @@ def _build_daemon(args: argparse.Namespace) -> Ds4CatiaDaemon:
         config=config,
     )
     daemon.set_dry_run(config.dry_run)
+
+    if args.verbose:
+
+        def _print_dispatch(state, results) -> None:
+            for result in results:
+                print(f"[input] skipped={result.skipped} reason={result.reason}")
+
+        daemon.on_dispatch = _print_dispatch
+
     return daemon
 
 

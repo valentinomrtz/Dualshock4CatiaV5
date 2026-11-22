@@ -399,3 +399,59 @@ def test_start_connects_hid_device_before_reading_and_stop_disconnects_it():
 
     daemon.stop()
     assert hid_device.calls == ["connect", "start_reading", "disconnect"]
+
+
+# -- on_dispatch observer (real-hardware-only notification) -------------------
+
+
+def test_on_hid_state_invokes_on_dispatch_with_state_and_results():
+    profile = Profile(
+        profile_id="base",
+        display_name="Base",
+        bindings=[
+            Binding(
+                id="fit-all",
+                input=InputRef(control="cross"),
+                target=CatiaCommandTarget(command_id="View.FitAll"),
+            )
+        ],
+    )
+    profiles = {"base": profile}
+    engine = MappingEngine(profiles)
+    engine.set_active_profile("base")
+    catia = FakeCatiaBackend()
+    catia.connect()
+    daemon = Ds4CatiaDaemon(engine=engine, profiles=profiles, catia=catia)
+
+    seen: list = []
+    daemon.on_dispatch = lambda state, results: seen.append((state, results))
+
+    # Directly exercising the real-hardware-only path (_on_hid_state),
+    # not feed_state(), since on_dispatch must NOT fire for a caller
+    # (e.g. the GUI dry-run panel's own buttons) that calls feed_state()
+    # itself -- only for input that arrived via the HID background
+    # thread's callback.
+    daemon._on_hid_state(_state(buttons={"cross": True}, timestamp=0.0))
+    daemon._on_hid_state(_state(buttons={"cross": False}, timestamp=0.05))
+
+    assert len(seen) == 2
+    assert any(r.skipped is False for _state_arg, results in seen for r in results)
+
+
+def test_feed_state_does_not_trigger_on_dispatch():
+    daemon = _make_daemon()
+    seen: list = []
+    daemon.on_dispatch = lambda state, results: seen.append((state, results))
+
+    daemon.feed_state(_state(buttons={"cross": True}), now=0.0)
+
+    assert seen == []
+
+
+def test_on_dispatch_exception_does_not_break_hid_callback():
+    daemon = _make_daemon()
+    daemon.on_dispatch = lambda state, results: (_ for _ in ()).throw(RuntimeError("boom"))
+
+    # Must not raise -- a broken observer can't be allowed to kill the
+    # real HID read loop.
+    daemon._on_hid_state(_state(buttons={"cross": True}))

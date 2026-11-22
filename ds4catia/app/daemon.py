@@ -172,6 +172,16 @@ class Ds4CatiaDaemon:
         self._hid_stop_event = threading.Event()
         self._hid_thread: Optional[threading.Thread] = None
 
+        # Optional observer, fired (from the HID background thread) each
+        # time a *real* controller report produces dispatch results --
+        # never for feed_state() calls a caller makes directly (e.g. the
+        # GUI dry-run panel's own on-screen buttons already show their
+        # own results inline; this hook exists so real hardware input
+        # can *also* be surfaced live, by a headless --verbose print or
+        # by the GUI relaying it into the same panel thread-safely).
+        # Must never raise into the HID read loop -- call sites wrap it.
+        self.on_dispatch: Optional[Callable[[DS4State, "list[DispatchResult]"], None]] = None
+
     # -- lifecycle --------------------------------------------------------
 
     def start(self) -> None:
@@ -242,7 +252,14 @@ class Ds4CatiaDaemon:
         # touch per-daemon state, and this project runs a single DS4
         # device per daemon, so there is no concurrent writer to guard
         # against here.
-        self.feed_state(state)
+        results = self.feed_state(state)
+        if self.on_dispatch is not None:
+            try:
+                self.on_dispatch(state, results)
+            except Exception:
+                # A broken observer (e.g. a GUI callback racing a
+                # teardown) must never take down the HID read loop.
+                pass
 
     def feed_state(
         self, state: DS4State, now: Optional[float] = None

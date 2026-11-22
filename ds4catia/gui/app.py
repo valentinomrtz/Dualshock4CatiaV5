@@ -35,6 +35,32 @@ from __future__ import annotations
 import sys
 
 
+class _DispatchRelay:
+    """Marshals ``Ds4CatiaDaemon.on_dispatch`` calls (fired on the HID
+    background thread) onto the Qt GUI thread, via a Qt signal.
+
+    Qt signal emission is thread-safe: emitting from a non-GUI thread to
+    a slot owned by a QObject that lives on the GUI thread is
+    automatically delivered as a *queued* connection, so the connected
+    slot still runs on the GUI thread even though ``emit()`` itself was
+    called from elsewhere. This is the standard, correct way to get
+    background-thread data into Qt widgets -- touching a widget directly
+    from the HID thread would be unsafe.
+    """
+
+    def __init__(self, panel) -> None:
+        from PySide6.QtCore import QObject, Signal
+
+        class _Emitter(QObject):
+            resultsReady = Signal(object, object)
+
+        self._emitter = _Emitter()
+        self._emitter.resultsReady.connect(lambda _state, results: panel.log_external_results(results))
+
+    def __call__(self, state, results) -> None:
+        self._emitter.resultsReady.emit(state, results)
+
+
 def run_gui(daemon) -> int:
     """Build and run the full GUI (main window + tray) for ``daemon``.
 
@@ -61,6 +87,12 @@ def run_gui(daemon) -> int:
     placeholder_label = window.tabs.tabText(1)
     window.tabs.removeTab(1)
     window.tabs.insertTab(1, dry_run_panel, placeholder_label)
+
+    # Relay real DS4 input (read on a background thread by the daemon)
+    # into the same panel's log, so it reflects a real connected
+    # controller, not only its own on-screen simulated buttons.
+    relay = _DispatchRelay(dry_run_panel)
+    daemon.on_dispatch = relay
 
     tray = TrayController(
         daemon,

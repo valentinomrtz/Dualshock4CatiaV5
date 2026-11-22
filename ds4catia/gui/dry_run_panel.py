@@ -165,6 +165,25 @@ class DryRunPanel(QWidget):
         self.refresh_catia_log()
         return results
 
+    def log_external_results(self, results: "list") -> None:
+        """Append dispatch results that came from *outside* this panel's
+        own on-screen controls -- in practice, real DS4 input relayed
+        from ``Ds4CatiaDaemon.on_dispatch`` by the GUI's integration
+        layer (see ``gui/app.py``). Prefixed so it's visibly
+        distinguishable in the log from this panel's own simulated taps.
+
+        Must be called from the Qt GUI thread -- the real HID callback
+        runs on a background thread, so the caller is responsible for
+        marshalling onto the GUI thread first (e.g. via a Qt signal),
+        never by calling this directly from that background thread.
+        """
+
+        for result in results:
+            self.result_log.addItem(
+                f"[mando real] skipped={result.skipped} reason={result.reason}"
+            )
+        self.refresh_catia_log()
+
     # -- button row -------------------------------------------------------------
 
     def _on_button_tap(self, control: str) -> None:

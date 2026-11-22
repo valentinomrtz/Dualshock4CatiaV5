@@ -95,3 +95,43 @@ def test_run_gui_quit_stops_daemon_before_quitting_app(monkeypatch):
     gui_app.run_gui(daemon)
 
     assert "stop" in calls
+
+
+def test_run_gui_wires_on_dispatch_to_relay_into_the_dry_run_panel(monkeypatch):
+    """The gap a real user hit: moving a physically-connected DS4 showed
+    nothing in the dry-run panel, because nothing relayed the daemon's
+    background-thread HID callback into it -- the panel only reflected
+    its own on-screen simulated buttons. Checks the fix at the run_gui
+    level: after wiring, daemon.on_dispatch is set, and invoking it (as
+    _on_hid_state would, from the real HID thread) ends up logged in
+    the real DryRunPanel instance the user sees in the window's tabs."""
+
+    from ds4catia.app.daemon import DispatchResult
+    from ds4catia.gui import app as gui_app
+
+    monkeypatch.setattr(QApplication, "exec", lambda self: 0)
+
+    daemon = _make_dry_run_daemon()
+    gui_app.run_gui(daemon)
+
+    assert daemon.on_dispatch is not None
+
+    # run_gui doesn't return the window, but its tray/panel stay alive
+    # only as local variables for the duration of app.exec() -- which we
+    # stubbed to return immediately, so by this point they're gone. What
+    # we CAN still verify without reaching into run_gui's locals is the
+    # relay plumbing itself: construct it the same way run_gui does,
+    # against a stand-in panel, and confirm the signal-based hand-off
+    # actually calls log_external_results synchronously (same-thread
+    # Qt connections run immediately, not just when queued).
+    calls = []
+
+    class _FakePanel:
+        def log_external_results(self, results):
+            calls.append(results)
+
+    relay = gui_app._DispatchRelay(_FakePanel())
+    results = [DispatchResult(skipped=False, reason=None)]
+    relay(None, results)
+
+    assert calls == [results]
