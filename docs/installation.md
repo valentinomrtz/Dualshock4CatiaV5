@@ -20,9 +20,11 @@
 - Un mando **DualShock 4**, conectado preferentemente por **USB** (ver
   [`troubleshooting.md`](troubleshooting.md) sobre por qué USB es la conexión
   recomendada por defecto y Bluetooth queda como secundaria).
-- No se necesita instalar ningún driver adicional (no hay HidHide, no hay
-  ViGEmBus): ds4catia lee el mando directamente como dispositivo HID genérico
-  en modo usuario, sin privilegios de administrador.
+- No se necesita instalar ningún **driver** adicional (no hay HidHide, no
+  hay ViGEmBus): ds4catia lee el mando directamente como dispositivo HID
+  genérico en modo usuario, sin privilegios de administrador. Sí hace falta
+  copiar un archivo `hidapi.dll` (no es un driver, solo una librería) — ver
+  el paso dedicado más abajo.
 
 ## Instalar desde el código fuente
 
@@ -33,7 +35,7 @@ pip install -e .[dev]
 ```
 
 Esto instala las dependencias del proyecto (`pydantic`, `jsonschema`,
-`PySide6`, y en Windows además `hid`, `pywin32`, `pycatia`) más las de
+`PySide6`, y en Windows además `hidapi`, `pywin32`, `pycatia`) más las de
 desarrollo (`pytest`, `pytest-qt`, `ruff`).
 
 Para comprobar que la instalación funciona, corre la suite de tests (no
@@ -42,6 +44,26 @@ necesita Windows ni hardware):
 ```bash
 pytest -q
 ```
+
+### Paso adicional obligatorio en Windows: `hidapi.dll`
+
+El paquete `hidapi` de Python es solo un envoltorio — **no incluye el
+`hidapi.dll` real**, así que hay que ponerlo a mano una sola vez:
+
+1. Descarga el zip de Windows desde
+   <https://github.com/libusb/hidapi/releases/latest> (el archivo termina
+   en `-win.zip`).
+2. Descomprímelo y coge `x64\hidapi.dll` (Python de 64 bits, lo habitual).
+3. Copia ese `hidapi.dll` a la raíz del proyecto, junto a `pyproject.toml`
+   (la carpeta desde la que ejecutas los comandos de `ds4catia`).
+
+Confirma que funcionó con:
+
+```bash
+python -c "import hid; print(hid.__file__)"
+```
+
+Si da error, consulta [`troubleshooting.md`](troubleshooting.md).
 
 ## Ejecutar la aplicación
 

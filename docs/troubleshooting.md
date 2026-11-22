@@ -12,28 +12,39 @@ confirmar en la práctica — se indica explícitamente dónde es así.
 ## `ImportError: Unable to load any of the following libraries: ... hidapi.dll ...`
 
 **Confirmado durante la verificación manual en una máquina Windows real.**
-Si ves este error al ejecutar `ds4catia` o `python -m ds4catia.main`, significa
-que se instaló el paquete de PyPI equivocado: existen dos paquetes distintos
-que ambos se importan como `hid` en Python, pero solo uno trae compilado el
-`.dll` de hidapi dentro de su wheel de Windows:
+Si ves este error al ejecutar `ds4catia` o `python -m ds4catia.main`, falta
+un archivo `hidapi.dll` en algún lugar donde Windows pueda encontrarlo.
 
-- `hidapi` (mantenido por Trezor) — **el que necesita este proyecto**, trae
-  el `.dll` incluido.
-- `hid` (de apmorton) — un envoltorio en ctypes que espera que `hidapi.dll`
-  ya esté presente en el sistema por separado, y falla con el error de
-  arriba si no lo está.
+Hay dos paquetes de PyPI distintos que ambos se importan como `hid` en
+Python (`hid`, de apmorton, y `hidapi`, mantenido por Trezor/cython-hidapi
+— este proyecto usa este segundo). **Ninguno de los dos trae el `.dll` de
+hidapi dentro del paquete para Windows** — ambos son solo el envoltorio de
+Python y esperan que `hidapi.dll` ya esté presente en el sistema por
+separado. (Esto corrige una afirmación anterior de esta misma página: se
+asumió que el paquete `hidapi` sí lo incluía, y no es así — confirmado
+inspeccionando el contenido real del wheel de Windows.)
 
-`pyproject.toml` ya declara la dependencia correcta (`hidapi`), pero si tu
-entorno instaló antes el paquete equivocado (p. ej. por un `pip install`
-previo, o por caché), corrígelo con:
+**Solución** — descargar el `.dll` oficial y ponerlo donde Windows lo
+encuentre:
+
+1. Ve a <https://github.com/libusb/hidapi/releases/latest> y descarga el
+   zip de Windows (termina en `-win.zip`).
+2. Descomprímelo y entra en la carpeta `x64` (asumiendo Python de 64 bits,
+   lo habitual).
+3. Copia `hidapi.dll` a la carpeta raíz del proyecto (la misma desde la
+   que ejecutas `python -m ds4catia.main` — Windows también busca DLLs en
+   el directorio de trabajo actual, así que no hace falta tocar el PATH
+   del sistema ni copiarlo a `System32`).
+4. Confirma con `python -c "import hid; print(hid.__file__)"` que ya no da
+   error antes de volver a intentar `ds4catia --list-devices`.
+
+Si, además de este error, confirmas que tienes instalado el paquete
+equivocado (`hid` en vez de `hidapi`), corrígelo con:
 
 ```bash
 pip uninstall hid -y
 pip install hidapi
 ```
-
-y confirma con `python -c "import hid; print(hid.__file__)"` que ya no da
-error antes de volver a intentar `ds4catia --list-devices`.
 
 ## `pip install hidapi` falla pidiendo "Microsoft Visual C++ 14.0 or greater"
 
