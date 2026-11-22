@@ -9,6 +9,32 @@ no solo problemas hipotéticos. Como el proyecto se construyó sin acceso a
 Windows/CATIA/mando reales, varios de estos puntos todavía no se han podido
 confirmar en la práctica — se indica explícitamente dónde es así.
 
+## `ImportError: Unable to load any of the following libraries: ... hidapi.dll ...`
+
+**Confirmado durante la verificación manual en una máquina Windows real.**
+Si ves este error al ejecutar `ds4catia` o `python -m ds4catia.main`, significa
+que se instaló el paquete de PyPI equivocado: existen dos paquetes distintos
+que ambos se importan como `hid` en Python, pero solo uno trae compilado el
+`.dll` de hidapi dentro de su wheel de Windows:
+
+- `hidapi` (mantenido por Trezor) — **el que necesita este proyecto**, trae
+  el `.dll` incluido.
+- `hid` (de apmorton) — un envoltorio en ctypes que espera que `hidapi.dll`
+  ya esté presente en el sistema por separado, y falla con el error de
+  arriba si no lo está.
+
+`pyproject.toml` ya declara la dependencia correcta (`hidapi`), pero si tu
+entorno instaló antes el paquete equivocado (p. ej. por un `pip install`
+previo, o por caché), corrígelo con:
+
+```bash
+pip uninstall hid -y
+pip install hidapi
+```
+
+y confirma con `python -c "import hid; print(hid.__file__)"` que ya no da
+error antes de volver a intentar `ds4catia --list-devices`.
+
 ## El antivirus/EDR corporativo marca la aplicación
 
 **Esto es lo esperado en un primer despliegue, no un fallo del software.**
